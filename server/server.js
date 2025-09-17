@@ -42,11 +42,18 @@ const allowedOrigins = [
   'http://localhost:5000',              // local backend (API)
 ];
 
-// ✅ CORS config
-app.use(cors()); // Allow all origins temporarily for debugging
+
+// ✅ CORS config for production
+app.use(cors({
+  origin: ['https://maxsolutionv1.netlify.app'], // allow your frontend domain
+  credentials: true, // if you use cookies or auth headers
+}));
 
 // ✅ Handle preflight
-app.options('*', cors());
+app.options('*', cors({
+  origin: ['https://maxsolutionv1.netlify.app'],
+  credentials: true,
+}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
