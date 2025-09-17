@@ -38,7 +38,7 @@ const SuperAdminPanel = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get('/users/admins');
+  const res = await api.get('/api/users/admins');
       setAdmins(res.data.admins || []);
     } catch {
       setError('Failed to fetch admins');
@@ -73,7 +73,7 @@ const SuperAdminPanel = () => {
         setShowUpdateDialog(true);
         return;
       } else {
-        await api.post('/profile/users', form);
+  await api.post('/api/users/admins', form);
         setSuccess('Admin/Faculty created successfully!');
       }
       setForm({ name: '', email: '', rollNo: '', branch: '', role: 'admin', isActive: true, password: '' });
@@ -123,7 +123,7 @@ const SuperAdminPanel = () => {
                 setError('');
                 setSuccess('');
                 try {
-                  await api.delete(`/users/admin/${deleteId}`);
+                  await api.delete(`/api/users/admin/${deleteId}`);
                   setSuccess('Admin deleted successfully!');
                   fetchAdmins();
                 } catch (err) {
@@ -151,7 +151,7 @@ const SuperAdminPanel = () => {
                 setError('');
                 setSuccess('');
                 try {
-                  await api.put(`/profile/${editId}`, { ...form, password: undefined });
+                  await api.put(`/api/profile/${editId}`, { ...form, password: undefined });
                   setSuccess('Admin updated successfully!');
                   fetchAdmins();
                 } catch (err) {

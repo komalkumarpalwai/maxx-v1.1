@@ -9,7 +9,7 @@ const AuditLogs = () => {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const res = await api.get('/audit-logs?limit=50');
+        const res = await api.get('/api/audit-logs?limit=50');
         setLogs(res.data.logs || []);
       } catch (err) {
         setError(err?.response?.data?.message || 'Failed to fetch audit logs');

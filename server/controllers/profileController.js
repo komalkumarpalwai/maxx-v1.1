@@ -1,3 +1,23 @@
+// @desc    Delete/deactivate current user (self)
+// @route   DELETE /api/profile/me
+// @access  Private
+const deleteMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    // Soft delete: set isActive to false, or hard delete: remove from DB
+    user.isActive = false;
+    await user.save();
+    // Optionally, to hard delete: await User.findByIdAndDelete(req.user._id);
+    res.json({ message: 'Account deactivated successfully.' });
+    await logAction('deactivate_self', req.user._id, {});
+  } catch (error) {
+    console.error('Delete self error:', error);
+    res.status(500).json({ message: 'Server error while deactivating account', error: error.message });
+  }
+};
 // @desc    Update user preferences (theme, font size)
 // @route   PUT /api/profile/preferences
 // @access  Private
@@ -27,6 +47,23 @@ const updatePreferences = async (req, res) => {
       message: 'Server error while updating preferences',
       error: error.message
     });
+  }
+};
+
+// @desc    Mark partner invite as shown for the current user
+// @route   PUT /api/profile/partner-invite
+// @access  Private
+const markPartnerInviteShown = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.partnerInviteShown = true;
+    await user.save();
+    res.json({ message: 'Partner invite marked as shown', partnerInviteShown: true, user: user.toProfileJSON() });
+    await logAction('partner_invite_shown', req.user._id, {});
+  } catch (error) {
+    console.error('Mark partner invite shown error:', error);
+    res.status(500).json({ message: 'Failed to mark partner invite', error: error.message });
   }
 };
 const User = require('../models/User');
@@ -101,37 +138,7 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// @desc    Upload profile picture
-// @route   POST /api/profile/upload-pic
-// @access  Private
-const uploadProfilePic = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
-
-    // Fetch user
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const profilePic = `/uploads/${req.file.filename}`;
-    user.profilePic = profilePic;
-    await user.save();
-
-    res.json({
-      message: 'Profile picture uploaded successfully',
-      user: user.toProfileJSON()
-    });
-  } catch (error) {
-    console.error('Upload profile pic error:', error);
-    res.status(500).json({ 
-      message: 'Server error while uploading profile picture',
-      error: error.message 
-    });
-  }
-};
+// Profile picture upload removed — functionality disabled intentionally.
 
 // @desc    Get all users (for admin/faculty)
 // @route   GET /api/profile/users
@@ -308,12 +315,13 @@ const resetUserPassword = async (req, res) => {
 module.exports = {
   getUserProfile,
   updateProfile,
-  uploadProfilePic,
   getAllUsers,
   deleteUser,
   createUser,
   adminUpdateUser,
   updateUserStatus,
   resetUserPassword,
-  updatePreferences
+  updatePreferences,
+  markPartnerInviteShown,
+  deleteMe
 };

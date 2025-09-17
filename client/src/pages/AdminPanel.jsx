@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { getPosts as getCommunityPosts, deletePost as deleteCommunityPost } from '../services/community';
+import { createPost } from '../services/community';
 import api from '../services/api';
 import CreateTestForm from '../components/CreateTestForm';
 import { Navigate } from 'react-router-dom';
@@ -21,15 +23,67 @@ const sidebarItems = [
   { key: 'results', label: 'Exam Results' },
   { key: 'analytics', label: 'Test Analytics' },
   { key: 'feedback', label: 'Feedback' },
+  { key: 'monitorCommunity', label: 'Monitor Community' },
 ];
-
+// (removed all misplaced hooks and JSX for monitorCommunity section)
+// (removed misplaced duplicate JSX for monitorCommunity section)
 
 const AdminPanel = () => {
+  const { user, token, logout } = useAuth();
+  const [section, setSection] = useState('create');
+
+  // Debug log for auth state
+  useEffect(() => {
+    console.log('Admin Panel Auth State:', { 
+      userId: user?._id,
+      role: user?.role,
+      hasToken: !!token
+    });
+  }, [user, token]);
+
+  // State for admin post as Max Solutions
+  const [adminPostContent, setAdminPostContent] = useState('');
+  const [adminPostImage, setAdminPostImage] = useState(null);
+  const [adminPostError, setAdminPostError] = useState('');
+  const [adminPostSuccess, setAdminPostSuccess] = useState('');
+  // Community monitor state/hooks
+  const [communityPosts, setCommunityPosts] = useState([]);
+  const [communityLoading, setCommunityLoading] = useState(false);
+  const [communityError, setCommunityError] = useState('');
+
+  // Fetch all community posts for monitor tab
+  const fetchCommunityPosts = async () => {
+    setCommunityLoading(true);
+    setCommunityError('');
+    try {
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
+      const data = await getCommunityPosts(token);
+      setCommunityPosts(data);
+    } catch (err) {
+      console.error('Fetch posts error:', err);
+      setCommunityError(err.response?.data?.message || 'Failed to fetch community posts');
+      
+      // Check if we need to redirect to login
+      if (err.response?.status === 401) {
+        alert('Your session has expired. Please log in again.');
+        logout();
+      }
+    } finally {
+      setCommunityLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (section === 'monitorCommunity') {
+      fetchCommunityPosts();
+    }
+    // eslint-disable-next-line
+  }, [section]);
   // Filter for deactivated users
   const [showDeactivatedOnly, setShowDeactivatedOnly] = useState(false);
-
-  const { user, logout } = useAuth();
-  const [section, setSection] = useState('create');
 
   const [pwOld, setPwOld] = useState('');
   const [pwNew, setPwNew] = useState('');
@@ -71,14 +125,14 @@ const AdminPanel = () => {
   };
   const handleBulkActivate = async () => {
     for (const id of selectedUserIds) {
-      await api.put(`/profile/${id}/status`, { isActive: true });
+      await api.put(`/api/profile/${id}/status`, { isActive: true });
     }
     setSelectedUserIds([]);
     window.location.reload();
   };
   const handleBulkDeactivate = async () => {
     for (const id of selectedUserIds) {
-      await api.put(`/profile/${id}/status`, { isActive: false });
+      await api.put(`/api/profile/${id}/status`, { isActive: false });
     }
     setSelectedUserIds([]);
     window.location.reload();
@@ -86,7 +140,7 @@ const AdminPanel = () => {
   const handleBulkDelete = async () => {
     if (!window.confirm('Are you sure you want to delete selected users?')) return;
     for (const id of selectedUserIds) {
-      await api.delete(`/profile/${id}`);
+      await api.delete(`/api/profile/${id}`);
     }
     setSelectedUserIds([]);
     window.location.reload();
@@ -96,8 +150,8 @@ const AdminPanel = () => {
     setLoading(true);
     setError('');
     Promise.all([
-      api.get('/users'),
-      api.get('/tests/results/all')
+  api.get('/api/users'),
+  api.get('/api/tests/results/all')
     ])
       .then(([usersRes, resultsRes]) => {
         setUsers(usersRes.data.users || []);
@@ -137,50 +191,196 @@ const AdminPanel = () => {
 
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col md:flex-row">
-      {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-white shadow md:h-screen flex flex-row md:flex-col justify-between md:justify-between fixed md:static z-20 top-0 left-0 md:relative" aria-label="Admin sidebar navigation">
-        <div className="w-full">
-          <h1 className="text-2xl font-bold text-center py-4 border-b" aria-label="Maxx Solutions Admin Panel">Maxx Solutions</h1>
-          <div className="text-center text-xs text-gray-500 mb-2">Admin Panel</div>
-          <nav className="flex flex-row md:flex-col gap-1 p-2 md:p-4 overflow-x-auto md:overflow-x-visible" aria-label="Sidebar navigation" role="navigation">
-            {sidebarItems.map(item => (
+    <div className="min-h-screen bg-gray-100">
+      <div className="flex">
+        {/* Sidebar */}
+        <aside className="w-64 bg-white shadow-lg h-screen sticky top-0" aria-label="Admin sidebar navigation">
+          <div className="flex flex-col h-full">
+            <div className="p-4 border-b">
+              <h1 className="text-2xl font-bold text-center" aria-label="Maxx Solutions Admin Panel">Maxx Solutions</h1>
+              <div className="text-center text-xs text-gray-500 mt-1">Admin Panel</div>
+            </div>
+            <nav className="flex-1 overflow-y-auto p-4">
+              {sidebarItems.map(item => (
+                <button
+                  key={item.key}
+                  className={`w-full text-left px-4 py-2 rounded transition-all mb-1 ${
+                    section === item.key 
+                      ? 'bg-blue-600 text-white font-semibold' 
+                      : 'hover:bg-blue-100 text-gray-700'
+                  }`}
+                  onClick={() => setSection(item.key)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+            <div className="p-4 border-t">
               <button
-                key={item.key}
-                className={`text-left px-4 py-2 rounded transition-all ${section === item.key ? 'bg-blue-600 text-white font-semibold' : 'hover:bg-blue-100 text-gray-700'}`}
-                onClick={() => setSection(item.key)}
-                aria-label={item.label}
-                tabIndex={0}
+                onClick={logout}
+                className="w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors"
               >
-                {item.label}
+                Logout
               </button>
-            ))}
-            {user?.role === 'superadmin' && (
-              <button
-                className={`text-left px-4 py-2 rounded transition-all ${section === 'superadmin' ? 'bg-purple-700 text-white font-semibold' : 'hover:bg-purple-100 text-gray-700'}`}
-                onClick={() => setSection('superadmin')}
-                aria-label="Superadmin section"
-                tabIndex={0}
-              >
-                Superadmin
-              </button>
+            </div>
+          </div>
+        </aside>
+        
+        {/* Main Content */}
+        <main className="flex-1 p-6" aria-label="Admin main content" role="main">
+        {section === 'monitorCommunity' && (
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Monitor Community</h2>
+
+            {/* Create Post as Max Solutions */}
+            <div className="bg-white rounded-xl shadow-lg p-4 mb-6 flex flex-col gap-2 max-w-xl mx-auto">
+              <h3 className="text-lg font-bold mb-2 text-blue-700">Post an Update as Max Solutions</h3>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                if (!adminPostContent && !adminPostImage) {
+                  setAdminPostError('Please provide content or an image');
+                  return;
+                }
+                setAdminPostError('');
+                setAdminPostSuccess('');
+                
+                try {
+                  const formData = new FormData();
+                  formData.append('content', adminPostContent);
+                  if (adminPostImage) {
+                    formData.append('imageFile', adminPostImage);
+                  }
+                  
+                  // Set the admin flag for proper handling on the server
+                  formData.append('isAdminPost', 'true');
+                  
+                  await createPost(formData, user.token, true);
+                  
+                  // Clear form and show success
+                  setAdminPostContent('');
+                  setAdminPostImage(null);
+                  setAdminPostSuccess('Posted successfully as Max Solutions!');
+                  
+                  // Refresh the post list
+                  await fetchCommunityPosts();
+                } catch (err) {
+                  console.error('Post creation error:', err);
+                  setAdminPostError('Failed to create post. Please try again.');
+                }
+              }} className="flex flex-col gap-2" encType="multipart/form-data">
+                <textarea
+                  className="border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none min-h-[60px]"
+                  placeholder="Write an important update..."
+                  value={adminPostContent}
+                  onChange={e => setAdminPostContent(e.target.value)}
+                  maxLength={300}
+                />
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    onChange={e => setAdminPostImage(e.target.files[0])}
+                  />
+                  <button type="submit" className="ml-auto bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold shadow transition-all">Post as Max Solutions</button>
+                </div>
+                {adminPostError && <div className="text-red-600 text-sm mt-1">{adminPostError}</div>}
+                {adminPostSuccess && <div className="text-green-600 text-sm mt-1">{adminPostSuccess}</div>}
+              </form>
+            </div>
+
+            {communityLoading ? (
+              <div className="flex items-center justify-center py-8" role="status" aria-live="polite">
+                <svg className="animate-spin h-8 w-8 text-blue-600 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <span>Loading community posts...</span>
+              </div>
+            ) : communityError ? (
+              <p className="text-red-600">{communityError}</p>
+            ) : (
+              <div className="overflow-x-auto w-full">
+                <table className="min-w-full border text-xs md:text-sm" aria-label="Community posts list">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border px-2 py-1">User</th>
+                      <th className="border px-2 py-1">Caption</th>
+                      <th className="border px-2 py-1">Image</th>
+                      <th className="border px-2 py-1">Created</th>
+                      <th className="border px-2 py-1">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {communityPosts.length === 0 ? (
+                      <tr><td colSpan={5} className="text-center py-4">No community posts found.</td></tr>
+                    ) : (
+                      communityPosts.map(post => (
+                        <tr key={post._id} className="border-b">
+                          <td className="border px-2 py-1">{post.user?.name || '—'}</td>
+                          <td className="border px-2 py-1 max-w-xs truncate">{post.caption || '—'}</td>
+                          <td className="border px-2 py-1">
+                            {post.image ? (
+                              <img 
+                                src={post.image.startsWith('http') ? post.image : `http://localhost:5000/uploads/${post.image}`}
+                                alt="Community post" 
+                                className="h-12 w-12 object-cover rounded"
+                              />
+                            ) : '—'}
+                          </td>
+                          <td className="border px-2 py-1">{post.createdAt ? new Date(post.createdAt).toLocaleString() : '—'}</td>
+                          <td className="border px-2 py-1">
+                            <button 
+                              className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded mr-2" 
+                              onClick={async () => {
+                                if(window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+                                  try {
+                                    setAdminPostError('');
+                                    setAdminPostSuccess('');
+                                    
+                                    console.log('Attempting to delete post:', {
+                                      postId: post._id,
+                                      hasToken: !!token,
+                                      userRole: user?.role
+                                    });
+                                    
+                                    if (!token) {
+                                      throw new Error('No authentication token available');
+                                    }
+                                    
+                                    await deleteCommunityPost(post._id, token);
+                                    setAdminPostSuccess('Post deleted successfully');
+                                    
+                                    // Refresh the posts list
+                                    await fetchCommunityPosts();
+                                  } catch (err) {
+                                    console.error('Delete error:', err);
+                                    const errorMessage = err.response?.data?.message || err.message || 'Failed to delete post';
+                                    setAdminPostError(errorMessage);
+                                    
+                                    // Check if we need to redirect to login
+                                    if (err.response?.status === 401) {
+                                      alert('Your session has expired. Please log in again.');
+                                      logout();
+                                    }
+                                  }
+                                }
+                              }}
+                              aria-label={`Delete post by ${post.user?.name || 'unknown user'}`}
+                            >
+                              Delete
+                            </button>
+                            {/* Future: Hide/Unhide button here */}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             )}
-            <button
-              className={`text-left px-4 py-2 rounded transition-all ${section === 'changepw' ? 'bg-green-600 text-white font-semibold' : 'hover:bg-green-100 text-gray-700'}`}
-              onClick={() => setSection('changepw')}
-              aria-label="Change Password"
-              tabIndex={0}
-            >
-              Change Password
-            </button>
-          </nav>
-        </div>
-        <div className="p-4 border-t">
-          <Button variant="danger" className="w-full" onClick={logout} aria-label="Logout">Logout</Button>
-        </div>
-      </aside>
-      {/* Main Content */}
-      <main className="flex-1 p-2 md:p-8 overflow-y-auto mt-20 md:mt-0" aria-label="Admin main content" role="main">
+          </div>
+        )}
         {/* Dashboard Overview */}
         {section === 'create' && (
           <div>
@@ -438,8 +638,8 @@ const AdminPanel = () => {
             </form>
           </div>
         )}
- 
-      </main>
+        </main>
+      </div>
     </div>
   );
 };

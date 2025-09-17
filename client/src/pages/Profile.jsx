@@ -1,18 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import { useAuth } from '../context/AuthContext';
+import { profileService } from '../services/profileService';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Save, X, Mail, Hash, AlertTriangle, Info } from 'lucide-react';
+import { Save, X, AlertTriangle, Info } from 'lucide-react';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Select from '../components/Select';
 import Avatar from '../components/Avatar';
 import toast from 'react-hot-toast';
 import { logoutService } from '../services/logoutService';
+const PartnerInvitePopup = lazy(() => import('../components/PartnerInvitePopup'));
 
 const Profile = () => {
-  const { user, updateProfile, uploadProfilePicture, loading } = useUser();
-  const { logout } = useAuth();
+  const { user, updateProfile, loading } = useUser();
+  const { logout, updateUser } = useAuth();
+  const [showPartnerInvite, setShowPartnerInvite] = useState(false);
+
+  // Partner invite display logic (same as before)
+  useEffect(() => {
+    if (!user) return setShowPartnerInvite(false);
+    if (user.role && user.role !== 'student') return setShowPartnerInvite(false);
+    if (user.partnerInviteShown) return setShowPartnerInvite(false);
+    const shownKey = 'partner_invite_shown_' + user._id;
+    const snoozeKey = 'partner_invite_snooze_' + user._id;
+    const snooze = localStorage.getItem(snoozeKey);
+    const now = Date.now();
+    if (!(localStorage.getItem(shownKey))) {
+      if (!snooze || parseInt(snooze, 10) <= now) {
+        setShowPartnerInvite(true);
+        return;
+      }
+    }
+    setShowPartnerInvite(false);
+  }, [user]);
+
   const navigate = useNavigate();
 
   const handleLogoutAll = async () => {
@@ -35,8 +57,6 @@ const Profile = () => {
     college: user?.college || ''
   });
   const [errors, setErrors] = useState({});
-  const [uploading, setUploading] = useState(false);
-  const [profilePicTimestamp, setProfilePicTimestamp] = useState(Date.now());
   const [showEmail, setShowEmail] = useState(false);
   const [showRoll, setShowRoll] = useState(false);
 
@@ -61,31 +81,18 @@ const Profile = () => {
 
   const validateForm = () => {
     const newErrors = {};
-
-    if (!formData.name) {
-      newErrors.name = 'Name is required';
-    }
-
-    if (!formData.year) {
-      newErrors.year = 'Year is required';
-    }
-
-    if (!formData.branch) {
-      newErrors.branch = 'Branch is required';
-    }
-
+    if (!formData.name) newErrors.name = 'Name is required';
+    if (!formData.year) newErrors.year = 'Year is required';
+    if (!formData.branch) newErrors.branch = 'Branch is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+    e && e.preventDefault();
     if (!validateForm()) return;
-
     try {
       const result = await updateProfile(formData);
-      
       if (result.success) {
         toast.success(result.message || 'Profile updated successfully!');
         if (result.remainingUpdates !== undefined) {
@@ -107,58 +114,12 @@ const Profile = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  };
-
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-
-    // Validate file size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const result = await uploadProfilePicture(file);
-      if (result.success) {
-        toast.success(result.message || 'Profile picture uploaded successfully!');
-        setProfilePicTimestamp(Date.now()); // Update timestamp to force image refresh
-      } else {
-        toast.error(result.error || 'Failed to upload profile picture');
-      }
-    } catch (error) {
-      toast.error('An error occurred while uploading profile picture');
-    } finally {
-      setUploading(false);
-    }
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
   const handleEdit = () => {
-    setFormData({
-      name: user?.name || '',
-      year: user?.year || '',
-      branch: user?.branch || '',
-      college: user?.college || ''
-    });
+    setFormData({ name: user?.name || '', year: user?.year || '', branch: user?.branch || '', college: user?.college || '' });
     setErrors({});
     setIsEditing(true);
   };
@@ -177,14 +138,39 @@ const Profile = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-2 sm:px-4">
+  <div className="w-full max-w-4xl mx-auto px-2 sm:px-6 overflow-x-hidden">
+      <Suspense fallback={null}>
+        {showPartnerInvite && user && (
+          <PartnerInvitePopup
+            onClose={() => setShowPartnerInvite(false)}
+            onDontShowAgain={async () => {
+              if (!user) return setShowPartnerInvite(false);
+              try {
+                const res = await profileService.markPartnerInviteShown();
+                if (res && res.user) updateUser(res.user);
+              } catch (err) {
+                localStorage.setItem('partner_invite_shown_' + user._id, '1');
+              } finally {
+                setShowPartnerInvite(false);
+              }
+            }}
+            onMaybeLater={() => {
+              if (!user) return setShowPartnerInvite(false);
+              const snoozeKey = 'partner_invite_snooze_' + user._id;
+              const snoozeUntil = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+              localStorage.setItem(snoozeKey, snoozeUntil.toString());
+              setShowPartnerInvite(false);
+            }}
+          />
+        )}
+      </Suspense>
+
       <h1 className="text-3xl font-bold text-secondary-900 mb-2 mt-8">Profile</h1>
       <p className="text-secondary-600 mb-6">Manage your personal information and settings</p>
 
-      {/* Update Limit Banner */}
-      <div className={`rounded-lg px-4 py-3 mb-6 flex items-center ${canUpdate ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border border-red-200'}`}>
-        <Info className={`w-5 h-5 mr-3 ${canUpdate ? 'text-blue-600' : 'text-red-600'}`} />
-        <div className="flex-1 text-sm">
+      <div className={`rounded-lg px-3 py-2 sm:px-4 sm:py-3 mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center ${canUpdate ? 'bg-blue-50 border border-blue-200' : 'bg-red-50 border border-red-200'} w-full max-w-full`}>
+        <Info className={`w-5 h-5 mb-2 sm:mb-0 sm:mr-3 ${canUpdate ? 'text-blue-600' : 'text-red-600'}`} />
+        <div className="flex-1 text-xs sm:text-sm w-full max-w-full">
           {canUpdate
             ? <span className="text-blue-800">You have <b>{remainingUpdates}</b> profile update{remainingUpdates !== 1 ? 's' : ''} remaining.</span>
             : <span className="text-red-700 font-semibold">You have reached your profile update limit (2 updates maximum).</span>
@@ -195,142 +181,94 @@ const Profile = () => {
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-8">
-        {/* Profile Picture Section */}
-        <div className="flex flex-col items-center md:items-start md:w-1/3">
-          <div className="relative mb-4">
-            <Avatar
-              src={user.profilePic && !user.profilePic.includes('default') ? `${user.profilePic.startsWith('http') ? user.profilePic : 'http://localhost:5001' + user.profilePic}?t=${profilePicTimestamp}` : ''}
-              alt={user.name}
-              size="2xl"
-              fallback={<img src="/logo192.png" alt="Default Logo" className="w-16 h-16 object-contain" />}
-              className="mb-2"
-            />
-            {/* Upload Button */}
-            <label className="absolute bottom-2 right-2 bg-primary-600 text-white p-2 rounded-full cursor-pointer hover:bg-primary-700 transition-colors duration-200 shadow">
-              <Camera className="w-4 h-4" />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                className="hidden"
-                disabled={uploading}
-              />
-            </label>
-          </div>
-          {uploading && <div className="text-xs text-secondary-500 mb-2">Uploading...</div>}
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-secondary-900 mb-1">{user.name}</h3>
-            <p className="text-secondary-600 text-xs mb-2">{user.role === 'admin' ? 'Administrator' : 'Student'}</p>
-          </div>
-          <div className="flex flex-col gap-2 mt-2 w-full">
-            <div className="flex items-center gap-2 justify-center md:justify-start">
-              <Hash className="w-4 h-4" />
-              <span className="text-xs font-medium text-secondary-500">Roll Number:</span>
-              <span className="font-mono text-xs">{showRoll ? user.rollNo : '••••••••'}</span>
-              <button type="button" className="text-xs underline text-blue-600" onClick={() => setShowRoll(v => !v)}>{showRoll ? 'Hide' : 'Show'}</button>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 w-full max-w-full">
+        <div className="col-span-1 bg-white rounded-lg shadow-sm border p-4 sm:p-6 flex flex-col items-center text-center w-full max-w-full">
+          <Avatar alt={user.name} size="2xl" className="mb-4" />
+          <h3 className="text-xl font-semibold text-secondary-900 mb-1">{user.name}</h3>
+          <p className="text-secondary-600 text-sm mb-4">{user.role === 'admin' ? 'Administrator' : 'Student'}</p>
+
+          <div className="w-full space-y-2 sm:space-y-3">
+            <div className="flex items-center justify-between text-sm text-secondary-600">
+              <span className="font-medium">Roll Number</span>
+              <span className="flex items-center gap-2 font-mono">
+                {showRoll ? user.rollNo : '••••••••'}
+                <button
+                  type="button"
+                  className="ml-2 text-xs text-blue-600 underline focus:outline-none"
+                  onClick={() => setShowRoll((v) => !v)}
+                >
+                  {showRoll ? 'Hide' : 'Show'}
+                </button>
+              </span>
             </div>
-            <div className="flex items-center gap-2 justify-center md:justify-start">
-              <Mail className="w-4 h-4" />
-              <span className="text-xs font-medium text-secondary-500">Email:</span>
-              <span className="font-mono text-xs">{showEmail ? user.email : '••••••••@••••.com'}</span>
-              <button type="button" className="text-xs underline text-blue-600" onClick={() => setShowEmail(v => !v)}>{showEmail ? 'Hide' : 'Show'}</button>
+            <div className="flex items-center justify-between text-sm text-secondary-600">
+              <span className="font-medium">Email</span>
+              <span className="flex items-center gap-2 font-mono">
+                {showEmail ? user.email : '••••••••@••••.com'}
+                <button
+                  type="button"
+                  className="ml-2 text-xs text-blue-600 underline focus:outline-none"
+                  onClick={() => setShowEmail((v) => !v)}
+                >
+                  {showEmail ? 'Hide' : 'Show'}
+                </button>
+              </span>
             </div>
+          </div>
+
+          <div className="mt-4 sm:mt-6 w-full flex flex-col gap-2">
+            <Button onClick={handleLogoutAll} variant="danger">Logout all</Button>
+            <Button onClick={handleEdit} variant="outline" disabled={!canUpdate}>{canUpdate ? 'Edit Profile' : 'Update Limit Reached'}</Button>
           </div>
         </div>
 
-        {/* Profile Information Section */}
-        <div className="flex-1">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
-            <h2 className="text-xl font-semibold text-secondary-900">Personal Information</h2>
-            <div className="flex gap-2">
-              <Button onClick={handleLogoutAll} variant="danger" className="mb-2">Logout all</Button>
-              {!isEditing ? (
-                <Button
-                  onClick={handleEdit}
-                  variant="outline"
-                  disabled={!canUpdate}
-                  title={!canUpdate ? 'Profile update limit reached (2 updates maximum)' : 'Edit your profile'}
-                >
-                  {canUpdate ? 'Edit Profile' : 'Update Limit Reached'}
-                </Button>
-              ) : (
+  <div className="col-span-2 bg-white rounded-lg shadow-sm border p-4 sm:p-6 w-full max-w-full">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 gap-2 w-full max-w-full">
+            <h2 className="text-lg sm:text-xl font-semibold text-secondary-900">Personal Information</h2>
+            <div className="flex items-center gap-2 mt-2 sm:mt-0">
+              {isEditing && (
                 <>
-                  <Button
-                    onClick={handleSubmit}
-                    loading={loading}
-                    disabled={loading}
-                  >
-                    <Save className="w-4 h-4 mr-2" />Save
-                  </Button>
-                  <Button onClick={handleCancel} variant="secondary">
-                    <X className="w-4 h-4 mr-2" />Cancel
-                  </Button>
+                  <Button onClick={handleSubmit} loading={loading} disabled={loading}><Save className="w-4 h-4 mr-2" />Save</Button>
+                  <Button onClick={handleCancel} variant="secondary"><X className="w-4 h-4 mr-2" />Cancel</Button>
                 </>
               )}
             </div>
           </div>
+
           {isEditing ? (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Input
-                  label="Full Name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  error={errors.name}
-                  placeholder="Enter your full name"
-                />
-                <Input
-                  label="College"
-                  name="college"
-                  value={formData.college}
-                  onChange={handleChange}
-                  placeholder="Enter college name"
-                />
-                <Select
-                  label="Year"
-                  name="year"
-                  value={formData.year}
-                  onChange={handleChange}
-                  error={errors.year}
-                  options={yearOptions}
-                />
-                <Select
-                  label="Branch"
-                  name="branch"
-                  value={formData.branch}
-                  onChange={handleChange}
-                  error={errors.branch}
-                  options={branchOptions}
-                />
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <Input label="Full Name" name="name" value={formData.name} onChange={handleChange} error={errors.name} placeholder="Enter your full name" />
+                <Input label="College" name="college" value={formData.college} onChange={handleChange} placeholder="Enter college name" />
+                <Select label="Year" name="year" value={formData.year} onChange={handleChange} error={errors.year} options={yearOptions} />
+                <Select label="Branch" name="branch" value={formData.branch} onChange={handleChange} error={errors.branch} options={branchOptions} />
               </div>
             </form>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-secondary-500">Full Name</label>
-                <p className="text-secondary-900">{user.name}</p>
+                <label className="text-xs sm:text-sm font-medium text-secondary-500">Full Name</label>
+                <p className="text-secondary-900 break-words">{user.name}</p>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-secondary-500">College</label>
-                <p className="text-secondary-900">{user.college}</p>
+                <label className="text-xs sm:text-sm font-medium text-secondary-500">College</label>
+                <p className="text-secondary-900 break-words">{user.college}</p>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-secondary-500">Year</label>
-                <p className="text-secondary-900">{user.year}</p>
+                <label className="text-xs sm:text-sm font-medium text-secondary-500">Year</label>
+                <p className="text-secondary-900 break-words">{user.year}</p>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-secondary-500">Branch</label>
-                <p className="text-secondary-900">{user.branch}</p>
+                <label className="text-xs sm:text-sm font-medium text-secondary-500">Branch</label>
+                <p className="text-secondary-900 break-words">{user.branch}</p>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-secondary-500">Role</label>
-                <p className="text-secondary-900 capitalize">{user.role}</p>
+                <label className="text-xs sm:text-sm font-medium text-secondary-500">Role</label>
+                <p className="text-secondary-900 capitalize break-words">{user.role}</p>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-secondary-500">Member Since</label>
-                <p className="text-secondary-900">{new Date(user.createdAt).toLocaleDateString()}</p>
+                <label className="text-xs sm:text-sm font-medium text-secondary-500">Member Since</label>
+                <p className="text-secondary-900 break-words">{new Date(user.createdAt).toLocaleDateString()}</p>
               </div>
             </div>
           )}

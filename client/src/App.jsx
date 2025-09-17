@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
@@ -8,20 +8,19 @@ import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 import Login from './pages/Login';
-import Coding from './pages/Coding';
+// Coding import removed
 import Register from './pages/Register';
-import Profile from './pages/Profile';
-import Dashboard from './pages/Dashboard';
+import Results from './pages/Results';
 import Tests from './pages/Tests';
 import TestTaking from './pages/TestTaking';
-import Results from './pages/Results';
 import TestAttempts from './pages/TestAttempts';
-import AdminLogin from './pages/AdminLogin';
+import Profile from './pages/Profile';
+import Dashboard from './pages/Dashboard';
 import AdminPanel from './pages/AdminPanel';
 import AdminAnalytics from './pages/AdminAnalytics';
 import { initializeSecurity } from './utils/security';
 import './index.css';
-import Academic from './pages/Academic';
+import Roadmap from './pages/Roadmap';
 import Settings from './pages/Settings';
 import Partner from './pages/Partner';
 import About from './pages/About';
@@ -29,11 +28,41 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import Terms from './pages/Terms';
 import Copyright from './pages/Copyright';
 import StartTest from './pages/StartTest';
+import Community from './pages/Community';
 
 function App() {
+  // ...existing code...
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  React.useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   useEffect(() => {
     initializeSecurity();
   }, []);
+
+  // Helper to render sidebar and navbar with mobile toggle
+  const renderLayout = (MainComponent) => (
+    <div className="flex min-h-screen flex-col">
+      <div className="flex flex-1 relative">
+        {/* Desktop Sidebar: only on sm+ */}
+        <div className="hidden sm:block">
+          <Sidebar />
+        </div>
+        {/* Mobile Sidebar Overlay: only on mobile and when open */}
+        {isMobile && mobileSidebarOpen && (
+          <Sidebar mobileOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
+        )}
+        <div className="flex-1 flex flex-col">
+          <Navbar onMobileMenu={() => setMobileSidebarOpen(true)} />
+          <main className="p-6 flex-1"><MainComponent /></main>
+        </div>
+      </div>
+      <Footer />
+    </div>
+  );
 
   return (
     <AuthProvider>
@@ -54,18 +83,10 @@ function App() {
 
             <Routes>
               {/* All main and public routes use a shared layout with Footer */}
-              <Route path="/coding" element={
+              {/* Coding route removed */}
+              <Route path="/community" element={
                 <ProtectedRoute>
-                  <div className="flex min-h-screen flex-col">
-                    <div className="flex flex-1">
-                      <Sidebar />
-                      <div className="flex-1 flex flex-col">
-                        <Navbar />
-                        <main className="p-6 flex-1"><Coding /></main>
-                      </div>
-                    </div>
-                    <Footer />
-                  </div>
+                  {renderLayout(() => <Community />)}
                 </ProtectedRoute>
               } />
               <Route path="/partner" element={<div className="flex flex-col min-h-screen"><Navbar /><main className="p-6 flex-1"><Partner /></main><Footer /></div>} />
@@ -88,131 +109,56 @@ function App() {
               {/* Protected routes */}
               <Route path="/" element={
                 <ProtectedRoute>
-                  <div className="flex min-h-screen flex-col">
-                    <div className="flex flex-1">
-                      <Sidebar />
-                      <div className="flex-1 flex flex-col">
-                        <Navbar />
-                        <main className="p-6 flex-1"><Dashboard /></main>
-                      </div>
-                    </div>
-                    <Footer />
-                  </div>
+                  {renderLayout(Dashboard)}
                 </ProtectedRoute>
               } />
 
               <Route path="/profile" element={
                 <ProtectedRoute>
-                  <div className="flex min-h-screen flex-col">
-                    <div className="flex flex-1">
-                      <Sidebar />
-                      <div className="flex-1 flex flex-col">
-                        <Navbar />
-                        <main className="p-6 flex-1"><Profile /></main>
-                      </div>
-                    </div>
-                    <Footer />
-                  </div>
+                  {renderLayout(Profile)}
                 </ProtectedRoute>
               } />
 
+
               <Route path="/tests" element={
                 <ProtectedRoute>
-                  <div className="flex min-h-screen flex-col">
-                    <div className="flex flex-1">
-                      <Sidebar />
-                      <div className="flex-1 flex flex-col">
-                        <Navbar />
-                        <main className="p-6 flex-1"><Tests /></main>
-                      </div>
-                    </div>
-                    <Footer />
-                  </div>
+                  {renderLayout(Tests)}
                 </ProtectedRoute>
               } />
 
               <Route path="/tests/:id" element={
                 <ProtectedRoute>
-                  <div className="flex min-h-screen flex-col">
-                    <div className="flex flex-1">
-                      <Sidebar />
-                      <div className="flex-1 flex flex-col">
-                        <Navbar />
-                        <main className="p-6 flex-1"><TestTaking /></main>
-                      </div>
-                    </div>
-                    <Footer />
-                  </div>
+                  {renderLayout(TestTaking)}
                 </ProtectedRoute>
               } />
 
-
               <Route path="/results" element={
                 <ProtectedRoute>
-                  <div className="flex min-h-screen flex-col">
-                    <div className="flex flex-1">
-                      <Sidebar />
-                      <div className="flex-1 flex flex-col">
-                        <Navbar />
-                        <main className="p-6 flex-1"><Results /></main>
-                      </div>
-                    </div>
-                    <Footer />
-                  </div>
+                  {renderLayout(Results)}
                 </ProtectedRoute>
               } />
 
               <Route path="/tests/:id/attempts" element={
                 <ProtectedRoute>
-                  <div className="flex min-h-screen flex-col">
-                    <div className="flex flex-1">
-                      <Sidebar />
-                      <div className="flex-1 flex flex-col">
-                        <Navbar />
-                        <main className="p-6 flex-1"><TestAttempts /></main>
-                      </div>
-                    </div>
-                    <Footer />
-                  </div>
+                  {renderLayout(TestAttempts)}
                 </ProtectedRoute>
               } />
 
-              <Route path="/academic" element={
+
+              <Route path="/roadmap" element={
                 <ProtectedRoute>
-                  <div className="flex min-h-screen flex-col">
-                    <div className="flex flex-1">
-                      <Sidebar />
-                      <div className="flex-1 flex flex-col">
-                        <Navbar />
-                        <main className="p-6 flex-1"><Academic /></main>
-                      </div>
-                    </div>
-                    <Footer />
-                  </div>
+                  {renderLayout(Roadmap)}
                 </ProtectedRoute>
               } />
 
               <Route path="/settings" element={
                 <ProtectedRoute>
-                  <div className="flex min-h-screen flex-col">
-                    <div className="flex flex-1">
-                      <Sidebar />
-                      <div className="flex-1 flex flex-col">
-                        <Navbar />
-                        <main className="p-6 flex-1"><Settings /></main>
-                      </div>
-                    </div>
-                    <Footer />
-                  </div>
+                  {renderLayout(Settings)}
                 </ProtectedRoute>
               } />
 
               {/* Admin routes */}
-              <Route path="/admin-login" element={
-                <ProtectedRoute requireAuth={false}>
-                  <AdminLogin />
-                </ProtectedRoute>
-              } />
+              {/* AdminLogin route removed */}
 
 
               <Route path="/admin" element={

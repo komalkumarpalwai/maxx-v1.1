@@ -47,10 +47,10 @@ const AdminExamResults = () => {
 
   const fetchExams = async () => {
     try {
-      const res = await api.get('/tests?all=1');
+  const res = await api.get('/api/tests?all=1');
       if (res.data.success) {
         // Show all exams that have at least one result (not deleted)
-        const allResults = await api.get('/tests/results/all');
+  const allResults = await api.get('/api/tests/results/all');
         const resultExamIds = new Set((allResults.data.results || []).map(r => r.test?._id || r.test));
         setExams(res.data.tests.filter(t => resultExamIds.has(t._id)));
       }
@@ -59,7 +59,7 @@ const AdminExamResults = () => {
 
   const fetchResults = async (examId) => {
     try {
-      const res = await api.get('/tests/results/all');
+  const res = await api.get('/api/tests/results/all');
       if (res.data.success) {
         setResults(res.data.results.filter(r => r.test && (r.test._id === examId || r.test === examId)));
       }

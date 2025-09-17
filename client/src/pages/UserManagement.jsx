@@ -3,15 +3,9 @@ import api from '../services/api';
 import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 
-const roles = [
-  { value: 'student', label: 'Student' },
-  { value: 'faculty', label: 'Faculty' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'superadmin', label: 'Super Admin' }
-];
 
 const UserForm = ({ open, onClose, onSave, user }) => {
-  const { user: currentUser } = useAuth();
+  // Removed unused currentUser
   const [form, setForm] = useState(user || { name: '', email: '', rollNo: '', branch: '', isActive: true, role: 'student', password: '' });
   const [errors, setErrors] = useState({});
   useEffect(() => { setForm(user || { name: '', email: '', rollNo: '', branch: '', isActive: true, role: 'student', password: '' }); setErrors({}); }, [user]);
@@ -107,7 +101,7 @@ const UserManagement = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get('/users');
+  const res = await api.get('/api/users');
       setUsers(res.data.users || []);
     } catch (e) {
       setError('Failed to fetch users');
@@ -129,7 +123,7 @@ const UserManagement = () => {
     if (!window.confirm(`Are you sure you want to ${isActive ? 'deactivate' : 'activate'} this user?`)) return;
     setLoading(true);
     try {
-      await api.put(`/profile/${id}/status`, { isActive: !isActive, role });
+  await api.put(`/api/profile/${id}/status`, { isActive: !isActive, role });
       fetchUsers();
     } catch {
       setError('Failed to update user status');
@@ -171,7 +165,7 @@ const UserManagement = () => {
     }
     setResetPwLoading(true);
     try {
-      await api.put(`/profile/${resetUserId}/reset-password`, { password: resetPassword });
+  await api.put(`/api/profile/${resetUserId}/reset-password`, { password: resetPassword });
       setResetPwSuccess('Password reset successfully!');
       setTimeout(() => setResetUserId(null), 1200);
     } catch {
@@ -185,9 +179,9 @@ const UserManagement = () => {
     setLoading(true);
     try {
       if (editUser) {
-        await api.put(`/profile/${editUser._id}`, form);
+  await api.put(`/api/profile/${editUser._id}`, form);
       } else {
-        await api.post('/profile/users', form);
+  await api.post('/api/users/admins', form);
       }
       setShowForm(false);
       setEditUser(null);

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import api from "../services/api";
+import toast from 'react-hot-toast';
 
 const Settings = () => {
   // Only password change state needed
@@ -7,6 +8,8 @@ const Settings = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
+  // Removed dark mode feature
+  const [deleting, setDeleting] = useState(false);
 
   const validatePassword = (password) => {
     // At least 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
@@ -16,7 +19,7 @@ const Settings = () => {
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-    setPasswordMessage("");
+  setPasswordMessage("");
     if (!oldPassword) {
       setPasswordMessage(
         "If you do not know your old password, please meet your admin or mentor."
@@ -36,7 +39,8 @@ const Settings = () => {
     try {
       const res = await api.post("/users/change-password", { oldPassword, newPassword });
       if (res.data && res.data.message && res.data.message.toLowerCase().includes("success")) {
-        setPasswordMessage("Password has been updated.");
+        toast.success("Password has been updated.");
+        setPasswordMessage("");
         setOldPassword("");
         setNewPassword("");
         setConfirmPassword("");
@@ -47,6 +51,26 @@ const Settings = () => {
       setPasswordMessage(
         (err.response?.data?.message || "An error occurred. Please contact your mentor or admin for further assistance.")
       );
+    }
+  };
+
+
+
+  // Delete/Deactivate account
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('Are you sure you want to delete/deactivate your account? This action cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      // Call API to delete/deactivate account (implement endpoint as needed)
+      await api.delete('/profile/me');
+      toast.success('Account deleted/deactivated.');
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 1500);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete/deactivate account.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -99,6 +123,16 @@ const Settings = () => {
             Save Password
           </button>
         </form>
+      </section>
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold mb-2">Account</h2>
+        <button
+          className="px-4 py-2 bg-red-600 text-white rounded disabled:opacity-60"
+          onClick={handleDeleteAccount}
+          disabled={deleting}
+        >
+          {deleting ? 'Processing...' : 'Delete/Deactivate Account'}
+        </button>
       </section>
       <footer className="mt-8 border-t pt-4 text-center text-sm text-gray-600">
         &copy; {new Date().getFullYear()} Maxx Solutions. All rights reserved.

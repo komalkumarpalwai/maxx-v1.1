@@ -13,7 +13,7 @@ const AdminFeedbackTable = () => {
   const fetchFeedbacks = async () => {
     setLoading(true); setError('');
     try {
-      const res = await api.get('/feedback');
+  const res = await api.get('/api/feedback');
       if (res.data.success) {
         setFeedbacks(res.data.feedbacks);
       } else {

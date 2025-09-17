@@ -17,7 +17,7 @@ const AdminAnalytics = () => {
     setLoading(true);
     try {
       // Example: fetch all test results
-      const res = await api.get('/tests/results/all');
+      const res = await api.get('/api/tests/results/all');
       const results = res.data.results || [];
       // Aggregate stats by test
       const stats = {};

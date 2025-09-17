@@ -20,10 +20,10 @@ const TestAttempts = () => {
     setLoading(true);
     try {
       // Get all attempts for this test by the current user
-      const res = await api.get(`/tests/results/student?testId=${id}`);
+  const res = await api.get(`/api/tests/results/student?testId=${id}`);
       setAttempts(res.data.results || []);
       // Fetch test details for question text/correct answers
-      const testRes = await api.get(`/tests/${id}`);
+  const testRes = await api.get(`/api/tests/${id}`);
       setTest(testRes.data.test);
     } catch {
       setAttempts([]);

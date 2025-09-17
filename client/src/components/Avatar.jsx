@@ -1,40 +1,41 @@
 import React from 'react';
-import { User } from 'lucide-react';
 
-const Avatar = ({ 
-  src, 
-  alt, 
-  size = 'md', 
-  className = '',
-  fallback = null 
+/**
+ * Avatar
+ * - Render a circular initials avatar instead of relying on app logo or uploaded images.
+ * - This component intentionally avoids using `/avathar.png` or any logo image.
+ * - It accepts `alt` (user full name) and derives initials from it.
+ */
+const Avatar = ({
+  alt,
+  size = 'md',
+  className = ''
 }) => {
   const sizes = {
-    sm: 'w-8 h-8',
-    md: 'w-12 h-12',
-    lg: 'w-16 h-16',
-    xl: 'w-24 h-24',
-    '2xl': 'w-32 h-32'
+    sm: 'w-8 h-8 text-sm',
+    md: 'w-12 h-12 text-base',
+    lg: 'w-16 h-16 text-lg',
+    xl: 'w-24 h-24 text-2xl',
+    '2xl': 'w-32 h-32 text-3xl'
   };
 
-  const classes = `${sizes[size]} rounded-full object-cover ${className}`;
+  const sizeClass = sizes[size] || sizes.md;
+  const classes = `${sizeClass} rounded-full flex items-center justify-center bg-gray-200 text-gray-700 font-semibold ${className}`;
 
-  if (src) {
-    return (
-      <img 
-        src={src} 
-        alt={alt} 
-        className={classes}
-        onError={(e) => {
-          e.target.style.display = 'none';
-          e.target.nextSibling.style.display = 'flex';
-        }}
-      />
-    );
-  }
+  // derive initials from alt/name
+  const getInitials = (name) => {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '';
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  };
+
+  const initials = getInitials(alt || '');
 
   return (
-    <div className={`${classes} bg-secondary-200 flex items-center justify-center text-secondary-600`}>
-      {fallback || <User className="w-1/2 h-1/2" />}
+    <div className={classes} role="img" aria-label={alt || 'avatar'} title={alt || 'avatar'}>
+      {initials || '?'}
     </div>
   );
 };

@@ -19,7 +19,7 @@ const TestAnalytics = () => {
 
   const fetchExams = async () => {
     try {
-      const res = await api.get('/tests?all=1');
+  const res = await api.get('/api/tests?all=1');
       if (res.data.success) setExams(res.data.tests);
     } catch {}
   };
@@ -28,7 +28,7 @@ const TestAnalytics = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get(`/tests/${examId}/analytics`);
+  const res = await api.get(`/api/tests/${examId}/analytics`);
       if (res.data.success) setAnalytics(res.data.analytics);
       else setError(res.data.message || 'No analytics');
     } catch (e) {
@@ -40,7 +40,7 @@ const TestAnalytics = () => {
 
   const handleDownloadCSV = async () => {
     try {
-      const res = await api.get('/tests/results/all');
+  const res = await api.get('/api/tests/results/all');
       if (!res.data.success) return;
       const results = res.data.results.filter(r => r.test && (r.test._id === selectedExam || r.test === selectedExam));
       if (!results.length) return alert('No results to export');

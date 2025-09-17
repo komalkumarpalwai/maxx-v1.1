@@ -85,7 +85,7 @@ function ViewQuestionsModal({ questions, testId, testTitle, onClose, fetchQuesti
   );
 }
 
-function AddQuestionsModal({ closeQModal, handleAddQuestions, loading }) {
+function AddQuestionsModal({ closeQModal, handleAddQuestions, loading, currentTestId }) {
   const [showCSV, setShowCSV] = useState(false);
   const [csvError, setCsvError] = useState('');
   const [csvQuestions, setCsvQuestions] = useState([]);
@@ -95,6 +95,7 @@ function AddQuestionsModal({ closeQModal, handleAddQuestions, loading }) {
   ]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [manualError, setManualError] = useState('');
+  // Removed AI generation state
   // Parse CSV string to array of question objects
   function parseCSV(csvText) {
     const lines = csvText.trim().split(/\r?\n/);
@@ -199,14 +200,16 @@ function AddQuestionsModal({ closeQModal, handleAddQuestions, loading }) {
     await handleAddQuestions(validQuestions);
     closeQModal();
   };
+
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg w-full max-w-md border border-gray-200 shadow-xl flex flex-col" style={{ minWidth: 350 }}>
         <h2 className="font-semibold text-xl mb-3 text-gray-800">Add Questions</h2>
         <div className="flex gap-2 mb-4">
           <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={() => setShowCSV(true)}>Bulk Upload (CSV)</button>
-          <button className="px-3 py-1 bg-gray-300 text-gray-600 rounded cursor-not-allowed" disabled>Generate with AI (Coming Soon)</button>
         </div>
+
         {showCSV && (
           <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
             <div className="bg-white p-4 rounded-lg w-full max-w-md border border-gray-200">
@@ -302,7 +305,7 @@ function ManageTestsTable() {
     setLoading(true); setError(''); setSuccess('');
     try {
       for (const id of selectedTests) {
-        await api.delete(`/tests/${id}`);
+  await api.delete(`/api/tests/${id}`);
       }
       setSuccess('Selected tests deleted!');
       setSelectedTests([]);
@@ -335,7 +338,7 @@ function ManageTestsTable() {
         setLoading(false);
         return;
       }
-      await api.put(`/tests/${testId}/activate`, { startDate: start, endDate: end, duration: mins });
+      await api.put(`/api/tests/${testId}/activate`, { startDate: start, endDate: end, duration: mins });
       // Move to next
       if (idx + 1 < bulkStartQueue.length) {
         setBulkStartModal({ open: true, testId: bulkStartQueue[idx + 1], idx: idx + 1, start: '', end: '', duration: '' });
@@ -360,7 +363,7 @@ function ManageTestsTable() {
   const openViewQModal = async (test) => {
     setLoading(true); setError('');
     try {
-      const res = await api.get(`/tests/${test._id}/admin-questions`);
+      const res = await api.get(`/api/tests/${test._id}/admin-questions`);
       setViewQModal({ open: true, questions: res.data.questions || [], testTitle: test.title });
     } catch (err) {
       setError('Failed to fetch questions');
@@ -382,7 +385,7 @@ function ManageTestsTable() {
     // Fetch allowed branches/years from backend
     const fetchRegistrationOptions = async () => {
       try {
-        const res = await api.get('/meta/registration-options');
+        const res = await api.get('/api/meta/registration-options');
         setBranchOptions(res.data.branches || []);
         setYearOptions(res.data.years || []);
       } catch (err) {
@@ -401,7 +404,7 @@ function ManageTestsTable() {
     setLoading(true); setError('');
     try {
       // Fetch all tests for admin (not just active ones)
-      const res = await api.get('/tests?all=1');
+      const res = await api.get('/api/tests?all=1');
       setTests(res.data.tests || []);
     } catch (err) {
       setError('Failed to fetch tests');
@@ -444,7 +447,7 @@ function ManageTestsTable() {
       setError('Select at least one allowed year'); setLoading(false); return;
     }
     try {
-      await api.put(`/tests/${editModal.test._id}`, editModal.form);
+      await api.put(`/api/tests/${editModal.test._id}`, editModal.form);
       setSuccess('Test settings updated!');
       closeEditModal();
       fetchTests();
@@ -469,7 +472,7 @@ function ManageTestsTable() {
         setLoading(false);
         return;
       }
-      await api.put(`/tests/${testId}/activate`, { startDate: start, endDate: end, duration: mins });
+  await api.put(`/api/tests/${testId}/activate`, { startDate: start, endDate: end, duration: mins });
       setSuccess('Test activated!');
       setWindowModal({ open: false, testId: null, start: '', end: '', duration: '' });
       fetchTests();
@@ -487,7 +490,7 @@ function ManageTestsTable() {
   const handleDeactivate = async (id) => {
     setLoading(true); setError(''); setSuccess('');
     try {
-      await api.put(`/tests/${id}/deactivate`);
+      await api.put(`/api/tests/${id}/deactivate`);
       setSuccess('Test deactivated!');
       fetchTests();
     } catch (err) {
@@ -500,7 +503,7 @@ function ManageTestsTable() {
     if (!window.confirm('Are you sure you want to delete this test? This action cannot be undone.')) return;
     setLoading(true); setError(''); setSuccess('');
     try {
-      await api.delete(`/tests/${id}`);
+      await api.delete(`/api/tests/${id}`);
       setSuccess('Test deleted successfully!');
       fetchTests();
     } catch (err) {
@@ -512,9 +515,28 @@ function ManageTestsTable() {
 
   const handleAddQuestions = async (questions) => {
     if (!currentTestId || !questions || questions.length === 0) return;
+    // Extra validation: ensure all required fields are present and valid
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (!q.question || !q.option1 || !q.option2 || !q.option3 || !q.option4) {
+        setError(`All options are required for question ${i + 1}`);
+        return;
+      }
+      if (
+        q.correctAnswer === undefined ||
+        q.correctAnswer === null ||
+        q.correctAnswer === '' ||
+        isNaN(Number(q.correctAnswer)) ||
+        Number(q.correctAnswer) < 1 ||
+        Number(q.correctAnswer) > 4
+      ) {
+        setError(`Correct answer (1-4) is required for question ${i + 1}`);
+        return;
+      }
+    }
     setLoading(true); setError(''); setSuccess('');
     try {
-      await api.put(`/tests/${currentTestId}/questions`, { questions });
+      await api.put(`/api/tests/${currentTestId}/questions`, { questions });
       setSuccess('Questions added!');
       fetchTests();
     } catch (err) {
@@ -728,6 +750,7 @@ const [showGuide, setShowGuide] = useState(true);
           closeQModal={closeQModal}
           handleAddQuestions={handleAddQuestions}
           loading={loading}
+          currentTestId={currentTestId}
         />
       )}
 
@@ -784,7 +807,7 @@ function ManageTestsTable() {
   const openViewQModal = async (test) => {
     setLoading(true); setError('');
     try {
-      const res = await api.get(`/tests/${test._id}/admin-questions`);
+  const res = await api.get(`/api/tests/${test._id}/admin-questions`);
       setViewQModal({ open: true, questions: res.data.questions || [], testTitle: test.title });
     } catch (err) {
       setError('Failed to fetch questions');
@@ -807,7 +830,7 @@ function ManageTestsTable() {
     // Fetch allowed branches/years from backend
     const fetchRegistrationOptions = async () => {
       try {
-        const res = await api.get('/meta/registration-options');
+  const res = await api.get('/api/meta/registration-options');
         setBranchOptions(res.data.branches || []);
         setYearOptions(res.data.years || []);
       } catch (err) {
@@ -826,7 +849,7 @@ function ManageTestsTable() {
     setLoading(true); setError('');
     try {
       // Fetch all tests for admin (not just active ones)
-      const res = await api.get('/tests?all=1');
+  const res = await api.get('/api/tests?all=1');
       setTests(res.data.tests || []);
     } catch (err) {
       setError('Failed to fetch tests');
@@ -869,7 +892,7 @@ function ManageTestsTable() {
       setError('Select at least one allowed year'); setLoading(false); return;
     }
     try {
-      await api.put(`/tests/${editModal.test._id}`, editModal.form);
+  await api.put(`/api/tests/${editModal.test._id}`, editModal.form);
       setSuccess('Test settings updated!');
       closeEditModal();
       fetchTests();
@@ -894,7 +917,7 @@ function ManageTestsTable() {
         setLoading(false);
         return;
       }
-      await api.put(`/tests/${testId}/activate`, { startDate: start, endDate: end, duration: mins });
+  await api.put(`/api/tests/${testId}/activate`, { startDate: start, endDate: end, duration: mins });
       setSuccess('Test activated!');
       setWindowModal({ open: false, testId: null, start: '', end: '', duration: '' });
       fetchTests();
@@ -910,7 +933,7 @@ function ManageTestsTable() {
   const handleDeactivate = async (id) => {
     setLoading(true); setError(''); setSuccess('');
     try {
-      await api.put(`/tests/${id}/deactivate`);
+  await api.put(`/api/tests/${id}/deactivate`);
       setSuccess('Test deactivated!');
       fetchTests();
     } catch (err) {
@@ -923,7 +946,7 @@ function ManageTestsTable() {
     if (!window.confirm('Are you sure you want to delete this test? This action cannot be undone.')) return;
     setLoading(true); setError(''); setSuccess('');
     try {
-      await api.delete(`/tests/${id}`);
+  await api.delete(`/api/tests/${id}`);
       setSuccess('Test deleted successfully!');
       fetchTests();
     } catch (err) {
@@ -937,7 +960,7 @@ function ManageTestsTable() {
     if (!currentTestId || !questions || questions.length === 0) return;
     setLoading(true); setError(''); setSuccess('');
     try {
-      await api.put(`/tests/${currentTestId}/questions`, { questions });
+  await api.put(`/api/tests/${currentTestId}/questions`, { questions });
       setSuccess('Questions added!');
       fetchTests();
     } catch (err) {

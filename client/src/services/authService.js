@@ -4,7 +4,7 @@ import api from './api';
 export const authService = {
   async login(email, password) {
     try {
-      const response = await api.post('/auth/login', { email, password });
+  const response = await api.post('/api/auth/login', { email, password });
       return response.data;
     } catch (error) {
       if (error.response && error.response.data) {
@@ -18,7 +18,7 @@ export const authService = {
 
   async adminLogin(email, password) {
     try {
-      const response = await api.post('/auth/admin-login', { email, password });
+  const response = await api.post('/api/auth/admin-login', { email, password });
       return response.data;
     } catch (error) {
       if (error.response && error.response.data) {
@@ -32,7 +32,7 @@ export const authService = {
 
   async register(userData) {
     try {
-      const response = await api.post('/auth/register', userData);
+  const response = await api.post('/api/auth/register', userData);
       return response.data;
     } catch (error) {
       if (error.response && error.response.data) {
@@ -61,7 +61,6 @@ export const authService = {
             college: 'Ace Engineering College',
             year: '',
             branch: '',
-            profilePic: '/default-avatar.png',
             role: 'admin',
             isActive: true,
             profileUpdateCount: 0,
@@ -75,7 +74,7 @@ export const authService = {
       }
     }
     try {
-      const response = await api.get('/auth/me');
+  const response = await api.get('/api/auth/me');
       return response.data.user;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to get current user');

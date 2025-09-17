@@ -35,7 +35,7 @@ const Results = () => {
       console.log('[Results] Fetching results...');
       setError('');
       setLoading(true);
-      const res = await api.get('/tests/results/student');
+  const res = await api.get('/api/tests/results/student');
       console.log('[Results] API response:', res);
       if (res.data?.success) {
         const allResults = res.data.results || [];

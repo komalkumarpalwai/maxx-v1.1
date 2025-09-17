@@ -68,15 +68,11 @@ router.get('/:id/admin-questions', auth, isAdmin, async (req, res) => {
 // @access  Private (Admin)
 router.post('/upload-csv', auth, isAdmin, upload.single('file'), uploadQuestionsCSV);
 
-// @desc    Generate questions using AI (admin only, coming soon)
+// @desc    Generate questions using AI (admin only)
 // @route   POST /api/tests/generate-ai
 // @access  Private (Admin)
-router.post('/generate-ai', auth, isAdmin, (req, res) => {
-  res.status(501).json({
-    success: false,
-    message: 'AI question generation will be released for Admin and Faculty soon in future versions.'
-  });
-});
+const { generateAIQuestions } = require('../controllers/aiController');
+router.post('/generate-ai', auth, isAdmin, generateAIQuestions);
 
 // @desc    Get all tests (public - for students to see available tests)
 // @route   GET /api/tests

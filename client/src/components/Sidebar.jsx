@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Home, User, FileText, BarChart3, Settings, GraduationCap, Info } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 
-const Sidebar = () => {
+const Sidebar = ({ mobileOpen, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useUser();
@@ -30,16 +30,10 @@ const Sidebar = () => {
       description: 'Your test results'
     },
     {
-      label: 'Academic',
+      label: 'Roadmap',
       icon: GraduationCap,
-      path: '/academic',
-      description: 'Academic information'
-    },
-    {
-      label: 'Coding',
-      icon: FileText,
-      path: '/coding',
-      description: 'Practice coding problems'
+      path: '/roadmap',
+      description: 'DSA sheets and learning roadmaps'
     },
     {
       label: 'Profile',
@@ -52,6 +46,13 @@ const Sidebar = () => {
       icon: Settings,
       path: '/settings',
       description: 'Application settings'
+    },
+    // Community page (all users)
+    {
+      label: 'Community',
+      icon: BarChart3, // You can replace with a more suitable icon
+      path: '/community',
+      description: 'Share posts, comments, upvotes'
     },
     // Admin analytics link (only for admin)
     ...(user && user.role === 'admin' ? [{
@@ -92,20 +93,26 @@ const Sidebar = () => {
     navigate(path);
   };
 
+  // Responsive: hide on mobile, overlay when open
   return (
-    <aside className="sidebar w-64">
-      <div className="p-6">
-        <div className="flex items-center space-x-3 mb-8">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-xl">M</span>
+    <>
+      {/* Desktop sidebar */}
+      <aside className="sidebar w-64 hidden sm:block">
+        <div className="p-6">
+        <div className="flex flex-col items-start mb-8">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-xl">M</span>
+            </div>
+            <div>
+              <Link to="/" className="text-lg font-semibold text-gray-900 hover:text-blue-700 transition-colors">Max Solutions</Link>
+              <p className="text-sm text-gray-500">Engineering Excellence</p>
+            </div>
           </div>
-          <div>
-            <Link to="/" className="text-lg font-semibold text-gray-900 hover:text-blue-700 transition-colors">Max Solutions</Link>
-            <p className="text-sm text-gray-500">Engineering Excellence</p>
-          </div>
+          <span className="text-xs text-gray-400 bg-gray-100 rounded px-2 py-0.5 mt-1 ml-1">Version 1.1</span>
         </div>
 
-        <nav className="space-y-2">
+  <nav className="space-y-2">
           {menuItems.map((item) => {
             const disabled = examActive && isFullscreen && !isActive(item.path) && item.path !== '/tests';
             return (
@@ -152,8 +159,87 @@ const Sidebar = () => {
             );
           })}
         </nav>
-      </div>
-    </aside>
+        </div>
+      </aside>
+      {/* Mobile sidebar overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 flex">
+          <div className="sidebar w-64 bg-white h-full shadow-lg relative">
+            <button
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-900 text-2xl"
+              onClick={onClose}
+              aria-label="Close sidebar"
+            >
+              &times;
+            </button>
+            <div className="p-6 pt-12">
+              {/* ...existing code... */}
+              <div className="flex flex-col items-start mb-8">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-xl">M</span>
+                  </div>
+                  <div>
+                    <Link to="/" className="text-lg font-semibold text-gray-900 hover:text-blue-700 transition-colors">Max Solutions</Link>
+                    <p className="text-sm text-gray-500">Engineering Excellence</p>
+                  </div>
+                </div>
+                <span className="text-xs text-gray-400 bg-gray-100 rounded px-2 py-0.5 mt-1 ml-1">Version 1.1</span>
+              </div>
+              <nav className="space-y-2">
+                {menuItems.map((item) => {
+                  const disabled = examActive && isFullscreen && !isActive(item.path) && item.path !== '/tests';
+                  return (
+                    <div key={item.label}>
+                      <button
+                        onClick={() => { handleNav(item.path, disabled); onClose && onClose(); }}
+                        className={`nav-link w-full ${
+                          isActive(item.path) ? 'nav-link-active' : 'nav-link-inactive'
+                        } ${disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+                        disabled={disabled}
+                        title={disabled ? 'Navigation disabled during test' : undefined}
+                      >
+                        <item.icon 
+                          className={`w-5 h-5 ${
+                            isActive(item.path) ? 'text-blue-600' : 'text-gray-500'
+                          }`} 
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium flex items-center">
+                            {item.label}
+                            {(item.label === 'Coding' || item.label === 'Academic') && (
+                              <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-400 text-yellow-900 rounded font-bold">Beta</span>
+                            )}
+                          </div>
+                          <div className={`text-xs ${
+                            isActive(item.path) ? 'text-blue-500' : 'text-gray-400'
+                          }`}>
+                            {item.description}
+                          </div>
+                        </div>
+                      </button>
+                      {/* Profile Update Limit Indicator */}
+                      {item.label === 'Profile' && remainingUpdates < 2 && (
+                        <div className="ml-12 mb-2 p-2 bg-blue-50 rounded-md border border-blue-200">
+                          <div className="flex items-center space-x-2">
+                            <Info className="w-3 h-3 text-blue-600" />
+                            <span className="text-xs text-blue-700">
+                              {remainingUpdates} update{remainingUpdates !== 1 ? 's' : ''} remaining
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </nav>
+            </div>
+          </div>
+          {/* Overlay background */}
+          <div className="flex-1 bg-black bg-opacity-30" onClick={onClose}></div>
+        </div>
+      )}
+    </>
   );
 };
 

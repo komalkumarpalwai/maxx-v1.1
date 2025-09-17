@@ -3,11 +3,27 @@ const User = require('../models/User');
 
 const auth = async (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    // Get token from header
+    const authHeader = req.header('Authorization');
+    console.log('Auth middleware - Request headers:', {
+      auth: authHeader ? 'Present' : 'Missing',
+      path: req.path,
+      method: req.method
+    });
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Auth middleware - Invalid auth header format');
+      return res.status(401).json({ 
+        message: 'Access denied. No token provided.',
+        hint: 'Please log in to access this resource.'
+      });
+    }
+
+    const token = authHeader.replace('Bearer ', '').trim();
     
     if (!token) {
       return res.status(401).json({ 
-        message: 'Access denied. No token provided.',
+        message: 'Access denied. Invalid token format.',
         hint: 'Please log in to access this resource.'
       });
     }
@@ -16,16 +32,34 @@ const auth = async (req, res, next) => {
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      
+      // Check if token is about to expire (within 5 minutes)
+      const tokenExp = decoded.exp * 1000; // Convert to milliseconds
+      const fiveMinutes = 5 * 60 * 1000;
+      if (tokenExp - Date.now() < fiveMinutes) {
+        // Add warning header to notify client
+        res.set('X-Token-Expiring-Soon', 'true');
+      }
     } catch (jwtError) {
+      console.error('JWT verification error:', jwtError.name, jwtError.message);
+      
       if (jwtError.name === 'TokenExpiredError') {
         return res.status(401).json({ 
           message: 'Token expired',
-          hint: 'Please log in again to get a new token.'
+          hint: 'Your session has expired. Please log in again.'
         });
       }
+      
+      if (jwtError.name === 'JsonWebTokenError') {
+        return res.status(401).json({ 
+          message: 'Invalid token',
+          hint: 'Please log in again with valid credentials.'
+        });
+      }
+      
       return res.status(401).json({ 
-        message: 'Invalid token',
-        hint: 'Please log in again.'
+        message: 'Authentication failed',
+        hint: 'Please try logging in again.'
       });
     }
 

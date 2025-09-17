@@ -16,6 +16,7 @@ const leaderboardRoutes = require('./routes/leaderboard');
 const userRoutes = require('./routes/users');
 const auditLogsRoutes = require('./routes/auditLogs');
 const metaRoutes = require('./routes/meta');
+const communityRoutes = require('./routes/community');
 const feedbackRoutes = require('./routes/feedback');
 
 // Load environment variables
@@ -37,25 +38,12 @@ const allowedOrigins = [
   'https://maxisolutions.netlify.app',  // fixed domain
   'https://maxsolutions.netlify.app',   // keep in case of second deployment
   'https://maxx-2-6gde.onrender.com',   // render server
+  'http://localhost:3000',              // local React dev
+  'http://localhost:5000',              // local backend (API)
 ];
 
 // ✅ CORS config
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // allow curl/postman with no origin
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
-        console.warn(`❌ CORS blocked: ${origin}`);
-        return callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
+app.use(cors()); // Allow all origins temporarily for debugging
 
 // ✅ Handle preflight
 app.options('*', cors());
@@ -63,8 +51,18 @@ app.options('*', cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Configure static files with proper CORS headers
+app.use('/uploads', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Cross-Origin-Embedder-Policy', 'credentialless');
+  next();
+}, express.static(path.join(__dirname, 'uploads'), {
+  setHeaders: (res, path) => {
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
 
 // Database connection
 mongoose.connect(process.env.MONGO_URI, {
@@ -87,6 +85,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/audit-logs', auditLogsRoutes);
 app.use('/api/meta', metaRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/community', communityRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {

@@ -3,7 +3,7 @@ import api from './api';
 export const profileService = {
   async getUserProfile(userId) {
     try {
-      const response = await api.get(`/profile/${userId}`);
+  const response = await api.get(`/api/profile/${userId}`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to get user profile');
@@ -12,7 +12,7 @@ export const profileService = {
 
   async updateProfile(profileData) {
     try {
-      const response = await api.put('/profile', profileData);
+  const response = await api.put('/api/profile', profileData);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to update profile');
@@ -20,24 +20,14 @@ export const profileService = {
   },
 
   async uploadProfilePicture(file) {
-    try {
-      const formData = new FormData();
-      formData.append('profilePic', file);
-
-      const response = await api.post('/profile/upload-pic', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || 'Failed to upload profile picture');
-    }
+    // Profile image uploads have been disabled in this app version.
+    // Keep this function for compatibility but always reject with a clear message.
+    return Promise.reject(new Error('Profile picture uploads are disabled.'));
   },
 
   async getAllUsers() {
     try {
-      const response = await api.get('/profile/users');
+  const response = await api.get('/api/users/admins');
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to get all users');
@@ -46,10 +36,20 @@ export const profileService = {
 
   async deleteUser(userId) {
     try {
-      const response = await api.delete(`/profile/${userId}`);
+  const response = await api.delete(`/api/profile/${userId}`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to delete user');
+    }
+  }
+
+  ,
+  async markPartnerInviteShown() {
+    try {
+      const response = await api.put('/api/profile/partner-invite');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to mark partner invite');
     }
   }
 };

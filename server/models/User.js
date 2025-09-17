@@ -62,7 +62,7 @@ const userSchema = new mongoose.Schema({
   },
   profilePic: {
     type: String,
-    default: "/default-avatar.png"
+    default: ''
   },
   role: {
     type: String,
@@ -92,6 +92,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['normal', 'large', 'x-large'],
     default: 'normal'
+  }
+  ,
+  partnerInviteShown: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
@@ -125,13 +130,14 @@ userSchema.methods.toProfileJSON = function() {
     college: this.college,
     year: this.year,
     branch: this.branch,
-    profilePic: this.profilePic,
+  profilePic: this.profilePic || '',
     role: this.role,
     isActive: this.isActive,
     profileUpdateCount: this.profileUpdateCount,
     passwordHint: this.passwordHint,
     theme: this.theme,
     fontSize: this.fontSize,
+    partnerInviteShown: this.partnerInviteShown,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt
   };

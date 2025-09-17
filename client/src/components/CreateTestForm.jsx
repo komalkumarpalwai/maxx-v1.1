@@ -18,7 +18,7 @@ const CreateTestForm = () => {
     e.preventDefault();
     setLoading(true); setError(''); setSuccess('');
     try {
-      await api.post('/tests', {
+      await api.post('/api/tests', {
         title,
         category: tab,
         description,

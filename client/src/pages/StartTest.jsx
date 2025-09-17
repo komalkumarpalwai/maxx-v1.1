@@ -85,7 +85,7 @@ const StartTest = () => {
       setLoading(true);
       setError("");
       try {
-        const { data } = await api.get(`/tests/${id}`);
+        const { data } = await api.get(`/api/tests/${id}`);
         const testObj = data.test || data;
         if (!testObj || !Array.isArray(testObj.questions) || testObj.questions.length === 0) {
           if (!cancelled) {
@@ -403,7 +403,7 @@ const StartTest = () => {
       const submittingToastId = toast.loading(forced ? "Auto-submitting..." : "Submitting test...");
 
       // call server
-      const res = await api.post(`/tests/${id}/submit`, {
+      const res = await api.post(`/api/tests/${id}/submit`, {
         answers: payloadAnswers,
         timeTaken,
         ...(forced ? { forced: true, autoSubmitReason: "violation_or_timeout" } : {}),
@@ -497,20 +497,19 @@ const StartTest = () => {
           </div>
         )}
         {/* Top Bar */}
-        <div className="w-full bg-white flex items-center justify-between px-10 py-3 shadow-sm sticky top-0 z-10 border-b">
-          <div className="flex items-center gap-4">
-            <img src="/logo.png" alt="Logo" className="h-8" />
-            <span className="font-bold text-lg text-black">{test?.title || "Maxx Assessment"}</span>
-            <span className="text-gray-500">|</span>
-            <span className="text-gray-700 font-medium">Saved: {savedLabel}</span>
+        <div className="w-full bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between px-3 sm:px-6 md:px-10 py-2 sm:py-3 shadow-sm sticky top-0 z-10 border-b gap-2 sm:gap-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-4 w-full sm:w-auto">
+            <span className="font-bold text-base sm:text-lg text-black line-clamp-1">{test?.title || "Maxx Assessment"}</span>
+            <span className="hidden sm:inline text-gray-500">|</span>
+            <span className="text-gray-700 font-medium text-xs sm:text-sm">Saved: {savedLabel}</span>
           </div>
-          <div className="flex items-center gap-8">
-            <span className="text-gray-700 font-medium">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-8 w-full sm:w-auto">
+            <span className="text-gray-700 font-medium text-xs sm:text-sm">
               Remaining Time: <span className="font-bold">{formatTime(timeLeft)}</span>
             </span>
-            <span className="text-gray-700 font-bold">{user?.name}</span>
+            <span className="text-gray-700 font-bold text-xs sm:text-base">{user?.name}</span>
             <button
-              className="bg-blue-600 text-white font-bold px-5 py-2 rounded shadow hover:bg-blue-700 transition-all"
+              className="bg-blue-600 text-white font-bold px-4 sm:px-5 py-2 rounded shadow hover:bg-blue-700 transition-all w-full sm:w-auto"
               onClick={() => handleSubmitTest(false)}
               disabled={isSubmittingRef.current}
             >
@@ -522,16 +521,23 @@ const StartTest = () => {
         {/* Fullscreen required overlay */}
         {!isFullscreen && (
           <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex flex-col items-center justify-center">
-            <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-200 max-w-md w-full text-center">
-              <h2 className="text-2xl font-bold text-blue-900 mb-4">Test Locked</h2>
-              <p className="text-gray-700 mb-4">You must be in fullscreen mode to take the test.</p>
+            <div className="bg-white rounded-lg shadow-lg p-4 sm:p-8 border border-gray-200 max-w-md w-full text-center">
+              <h2 className="text-xl sm:text-2xl font-bold text-blue-900 mb-3 sm:mb-4">Test Locked</h2>
+              <p className="text-gray-700 mb-3 sm:mb-4 text-sm sm:text-base">You must be in fullscreen mode to take the test.</p>
               <Button
                 onClick={async () => {
                   try {
-                    if (document.documentElement.requestFullscreen) {
-                      await document.documentElement.requestFullscreen();
-                    } else if (document.documentElement.webkitRequestFullscreen) {
-                      document.documentElement.webkitRequestFullscreen();
+                    // iOS Safari workaround: request fullscreen on body, fallback to html
+                    const docEl = document.documentElement;
+                    const bodyEl = document.body;
+                    if (bodyEl.requestFullscreen) {
+                      await bodyEl.requestFullscreen();
+                    } else if (bodyEl.webkitRequestFullscreen) {
+                      bodyEl.webkitRequestFullscreen();
+                    } else if (docEl.requestFullscreen) {
+                      await docEl.requestFullscreen();
+                    } else if (docEl.webkitRequestFullscreen) {
+                      docEl.webkitRequestFullscreen();
                     }
                   } catch {}
                 }}
@@ -539,12 +545,13 @@ const StartTest = () => {
               >
                 Enter Fullscreen
               </Button>
+              <div className="text-xs text-gray-400 mt-2">If fullscreen does not work, try using Safari or Chrome browser and allow fullscreen permissions.</div>
             </div>
           </div>
         )}
 
         {/* Navigation & Attempted Count */}
-        <div className="w-full max-w-5xl mx-auto flex flex-col px-8 py-4">
+  <div className="w-full max-w-5xl mx-auto flex flex-col px-2 sm:px-6 md:px-8 py-2 sm:py-4">
           {test?.allowNavigation === false && (
             <div className="mb-2 p-3 bg-yellow-100 text-yellow-900 rounded text-center font-semibold border border-yellow-300">
               Navigation for this exam is restricted. Please contact your mentor or admin if you need help.
@@ -608,16 +615,16 @@ const StartTest = () => {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex items-center justify-center px-2">
+        <div className="flex-1 flex items-center justify-center px-1 sm:px-2">
           <div
             className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-0 rounded-lg shadow-lg border border-gray-200 bg-white"
-            style={{ minHeight: "500px" }}
+            style={{ minHeight: "400px" }}
           >
             {/* Left: Question */}
-            <div className="flex flex-col justify-between p-10">
+            <div className="flex flex-col justify-between p-4 sm:p-8">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[#153A6B] font-semibold">Question {currentQuestionIndex + 1}</span>
+                  <span className="text-[#153A6B] font-semibold text-base sm:text-lg">Question {currentQuestionIndex + 1}</span>
                   <span className="text-gray-500 flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -627,12 +634,12 @@ const StartTest = () => {
                       className="accent-blue-600"
                       disabled={isSubmittingRef.current}
                     />
-                    <label htmlFor="revisitLater" className="cursor-pointer">
+                    <label htmlFor="revisitLater" className="cursor-pointer text-xs sm:text-sm">
                       <i className="fas fa-flag"></i> Revisit Later
                     </label>
                   </span>
                 </div>
-                <div className="text-gray-800 text-base mb-6">
+                <div className="text-gray-800 text-sm sm:text-base mb-4 sm:mb-6">
                   {question?.question || question?.text || "Question not available"}
                 </div>
                 {/* optionally show images, code blocks, etc. Add here if your question object contains them */}
@@ -643,23 +650,23 @@ const StartTest = () => {
             <div className="hidden md:block border-l border-gray-200"></div>
 
             {/* Right: Options */}
-            <div className="flex flex-col justify-between p-10">
+            <div className="flex flex-col justify-between p-4 sm:p-8">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[#153A6B] font-semibold">Select an option</span>
+                  <span className="text-[#153A6B] font-semibold text-base sm:text-lg">Select an option</span>
                   <button
-                    className="text-sm text-[#153A6B] hover:underline"
+                    className="text-xs sm:text-sm text-[#153A6B] hover:underline"
                     onClick={handleClearResponse}
                     disabled={isSubmittingRef.current}
                   >
                     Clear Response
                   </button>
                 </div>
-                <div className="flex flex-col gap-4 mb-8">
+                <div className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8">
                   {question?.options?.map((opt, i) => (
                     <label
                       key={i}
-                      className={`w-full flex items-center gap-2 border rounded-lg px-4 py-3 transition-all duration-150 cursor-pointer ${
+                      className={`w-full flex items-center gap-2 border rounded-lg px-3 sm:px-4 py-2 sm:py-3 transition-all duration-150 cursor-pointer ${
                         answers[key] === i
                           ? "border-[#153A6B] bg-[#F5F8FB]"
                           : "border-gray-300 bg-white hover:border-[#153A6B] hover:bg-[#F5F8FB]"
@@ -674,25 +681,25 @@ const StartTest = () => {
                         className="accent-blue-600"
                         disabled={inputsDisabled}
                       />
-                      <span className="text-base leading-relaxed">{opt}</span>
+                      <span className="text-sm sm:text-base leading-relaxed">{opt}</span>
                     </label>
                   ))}
                 </div>
-                <div className="flex justify-between items-center mt-2">
-                  <div className="text-sm text-gray-500">
+                <div className="flex flex-col sm:flex-row justify-between items-center mt-2 gap-2 sm:gap-0">
+                  <div className="text-xs sm:text-sm text-gray-500">
                     {isSubmittingRef.current ? "Submitting..." : `${attemptedCount} attempted`}
                   </div>
-                  <div>
+                  <div className="flex gap-2">
                     <button
-                      className="bg-gray-300 text-gray-800 px-4 py-2 rounded mr-3"
+                      className="bg-gray-300 text-gray-800 px-3 sm:px-4 py-2 rounded"
                       onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
                       disabled={currentQuestionIndex === 0 || isSubmittingRef.current}
                     >
                       Previous
                     </button>
                     <button
-                      className="bg-blue-600 text-white px-5 py-2 rounded shadow hover:bg-blue-700 transition-all text-base font-semibold"
-                      style={{ minWidth: "120px" }}
+                      className="bg-blue-600 text-white px-4 sm:px-5 py-2 rounded shadow hover:bg-blue-700 transition-all text-sm sm:text-base font-semibold"
+                      style={{ minWidth: "90px" }}
                       onClick={() => {
                         if (currentQuestionIndex < test.questions.length - 1)
                           setCurrentQuestionIndex((i) => i + 1);
@@ -710,9 +717,9 @@ const StartTest = () => {
         </div>
 
         {/* Footer */}
-        <div className="w-full max-w-5xl mx-auto mt-4 mb-2 text-xs text-gray-500 text-center flex flex-col gap-1">
+        <div className="w-full max-w-5xl mx-auto mt-2 mb-2 text-xs text-gray-500 text-center flex flex-col gap-1 px-2">
           <div>Maxx Assessment © 2025-2031</div>
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2">
             <span>Need Help? Contact us:</span>
             <span className="text-black">+91 8309897937</span>
             <span className="text-black">+91 9908776278</span>
