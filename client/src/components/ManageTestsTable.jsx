@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { parseQuestionFile, validateQuestions } from '../utils/questionParser';
+import QuestionPreviewEditor from './QuestionPreviewEditor';
 
 // Single clean ViewQuestionsModal component (above ManageTestsTable)
 function ViewQuestionsModal({ questions, testId, testTitle, onClose, fetchQuestions }) {
@@ -97,73 +99,65 @@ const AddQuestionsModal = ({ closeQModal, handleAddQuestions, loading, currentTe
   const [manualError, setManualError] = useState('');
   // Removed AI generation state
   // Parse CSV string to array of question objects
-  function parseCSV(csvText) {
-    const lines = csvText.trim().split(/\r?\n/);
-    if (lines.length === 0) return [];
+    const [showPreview, setShowPreview] = useState(false);
 
-    // Handle both tab-delimited and comma-delimited files
-    const delimiter = csvText.includes('\t') ? '\t' : ',';
-    
-    return lines.map(line => {
-      const values = line.split(delimiter);
-      return {
-        question: values[0] || '',
-        option1: values[1] || '',
-        option2: values[2] || '',
-        option3: values[3] || '',
-        option4: values[4] || '',
-        correctAnswer: values[5] || '',
-        points: values[6] || '1'  // Default to 1 point if not specified
-      };
-    });
-  }
-
-  const handleCSVUpload = async (e) => {
+  const handleFileUpload = async (e) => {
     setCsvError('');
     setCsvQuestions([]);
     const file = e.target.files[0];
     if (!file) return;
     
-    // Accept both .csv and .txt files
-    if (!file.name.endsWith('.csv') && !file.name.endsWith('.txt')) {
-      setCsvError('Please upload a .csv or .txt file.');
+    // Accept various file formats
+    const validExtensions = ['csv', 'txt', 'json', 'xlsx', 'xls'];
+    const extension = file.name.split('.').pop().toLowerCase();
+    
+    if (!validExtensions.includes(extension)) {
+      setCsvError(`Please upload a ${validExtensions.join('/')} file.`);
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const text = event.target.result;
-        const questions = parseCSV(text);
+    try {
+      const questions = await parseQuestionFile(file);
+      const validationResults = validateQuestions(questions);
+      
+      const validQuestions = validationResults
+        .filter(result => result.isValid)
+        .map(result => result.question);
 
-        // Validate questions
-        const validQuestions = questions.filter(q => 
-          q.question?.trim() && 
-          q.option1?.trim() && 
-          q.option2?.trim() && 
-          q.option3?.trim() && 
-          q.option4?.trim() && 
-          q.correctAnswer?.trim()
-        );
+      const invalidQuestions = validationResults.filter(result => !result.isValid);
 
-        if (!validQuestions.length) {
-          setCsvError('No valid questions found in the file. Please check the format.');
+      if (invalidQuestions.length > 0) {
+        const errorMessages = invalidQuestions
+          .map(result => `Question ${result.index + 1}: ${result.errors.join(', ')}`)
+          .join('\\n');
+        
+        if (validQuestions.length === 0) {
+          setCsvError(`No valid questions found. Errors:\\n${errorMessages}`);
+          return;
         } else {
-          // Convert the questions to the correct format
-          const formattedQuestions = validQuestions.map(q => ({
-            ...q,
-            points: q.points ? parseInt(q.points) : 1,
-            correctAnswer: q.correctAnswer ? parseInt(q.correctAnswer) : 1
-          }));
-          setCsvQuestions(formattedQuestions);
-          console.log('Parsed questions:', formattedQuestions);
+          setCsvError(`Warning: ${invalidQuestions.length} questions have errors and will be skipped:\\n${errorMessages}`);
         }
-      } catch (err) {
-        console.error('Parse error:', err);
-        setCsvError('Failed to parse file. Please check the format.');
       }
-    };
-    reader.readAsText(file);
+
+      if (validQuestions.length > 0) {
+        // Format the questions
+        const formattedQuestions = validQuestions.map(q => ({
+          question: q.question.trim(),
+          option1: q.option1.trim(),
+          option2: q.option2.trim(),
+          option3: q.option3.trim(),
+          option4: q.option4.trim(),
+          points: parseInt(q.points) || 1,
+          correctAnswer: parseInt(q.correctAnswer) || 1
+        }));
+
+        setCsvQuestions(formattedQuestions);
+        setShowPreview(true);
+      }
+    } catch (err) {
+      console.error('Parse error:', err);
+      setCsvError(`Failed to parse file: ${err.message}`);
+    }
   };
 
   const handleSaveCSVQuestions = useCallback(async () => {
@@ -271,19 +265,94 @@ const AddQuestionsModal = ({ closeQModal, handleAddQuestions, loading, currentTe
               <h4 className="font-semibold mb-2 text-gray-700">CSV Format</h4>
               <p className="text-xs mb-2">Format (tab-separated or comma-separated):</p>
               <div className="bg-gray-100 p-2 rounded text-xs mb-2 whitespace-pre-wrap font-mono">
+                <div className="mb-2">CSV Format:</div>
                 question    option1    option2    option3    option4    correctAnswer    points<br/>
                 How do you say hello?    Hi    Bye    Thanks    Good    1    1<br/>
                 What is 2+2?    2    3    4    5    3    1
               </div>
-              <input type="file" accept=".csv" onChange={handleCSVUpload} className="mb-2" />
-              {csvQuestions.length > 0 && (
-                <div className="mb-2 text-xs text-green-700">{csvQuestions.length} questions ready to save.</div>
-              )}
-              {csvError && <div className="text-red-600 text-xs mb-2">{csvError}</div>}
-              <div className="flex gap-2 mt-2">
-                <button className="px-3 py-1 bg-blue-500 text-white rounded" onClick={handleSaveCSVQuestions} disabled={csvLoading || !csvQuestions.length}>{csvLoading ? 'Saving...' : 'Save'}</button>
-                <button className="px-3 py-1 bg-gray-500 text-white rounded" onClick={() => setShowCSV(false)} disabled={csvLoading}>Close</button>
+              <div className="bg-gray-100 p-2 rounded text-xs mb-2 whitespace-pre-wrap font-mono">
+                <div className="mb-2">JSON Format:</div>
+                [&#123;<br/>
+                  &nbsp;&nbsp;"question": "How do you say hello?",<br/>
+                  &nbsp;&nbsp;"option1": "Hi",<br/>
+                  &nbsp;&nbsp;"option2": "Bye",<br/>
+                  &nbsp;&nbsp;"option3": "Thanks",<br/>
+                  &nbsp;&nbsp;"option4": "Good",<br/>
+                  &nbsp;&nbsp;"correctAnswer": 1,<br/>
+                  &nbsp;&nbsp;"points": 1<br/>
+                &#125;]
               </div>
+              <div className="flex gap-2 mb-2">
+                <button 
+                  className="px-3 py-1 bg-green-500 text-white rounded text-sm"
+                  onClick={() => {
+                    const csvTemplate = 'question,option1,option2,option3,option4,correctAnswer,points\nHow do you say hello?,Hi,Bye,Thanks,Good,1,1\nWhat is 2+2?,2,3,4,5,3,1';
+                    const blob = new Blob([csvTemplate], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'questions_template.csv';
+                    a.click();
+                  }}
+                >
+                  Download CSV Template
+                </button>
+                <button 
+                  className="px-3 py-1 bg-green-500 text-white rounded text-sm"
+                  onClick={() => {
+                    const jsonTemplate = [
+                      {
+                        question: "How do you say hello?",
+                        option1: "Hi",
+                        option2: "Bye",
+                        option3: "Thanks",
+                        option4: "Good",
+                        correctAnswer: 1,
+                        points: 1
+                      }
+                    ];
+                    const blob = new Blob([JSON.stringify(jsonTemplate, null, 2)], { type: 'application/json' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'questions_template.json';
+                    a.click();
+                  }}
+                >
+                  Download JSON Template
+                </button>
+              </div>
+              <input type="file" accept=".csv,.txt,.json" onChange={handleFileUpload} className="mb-2" />
+              {csvQuestions.length > 0 && !showPreview && (
+                <div className="mb-2 text-xs text-green-700">
+                  {csvQuestions.length} questions parsed successfully. Click Preview to review and edit.
+                </div>
+              )}
+              {csvError && <div className="text-red-600 text-xs mb-2 whitespace-pre-line">{csvError}</div>}
+              {showPreview ? (
+                <QuestionPreviewEditor
+                  questions={csvQuestions}
+                  onSave={handleSaveCSVQuestions}
+                  onCancel={() => setShowPreview(false)}
+                />
+              ) : (
+                <div className="flex gap-2 mt-2">
+                  <button 
+                    className="px-3 py-1 bg-blue-500 text-white rounded" 
+                    onClick={() => setShowPreview(true)} 
+                    disabled={csvLoading || !csvQuestions.length}
+                  >
+                    Preview & Edit
+                  </button>
+                  <button 
+                    className="px-3 py-1 bg-gray-500 text-white rounded" 
+                    onClick={() => setShowCSV(false)} 
+                    disabled={csvLoading}
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
