@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 
 // Single clean ViewQuestionsModal component (above ManageTestsTable)
@@ -85,7 +85,7 @@ function ViewQuestionsModal({ questions, testId, testTitle, onClose, fetchQuesti
   );
 }
 
-function AddQuestionsModal({ closeQModal, handleAddQuestions, loading, currentTestId }) {
+const AddQuestionsModal = ({ closeQModal, handleAddQuestions, loading, currentTestId }) => {
   const [showCSV, setShowCSV] = useState(false);
   const [csvError, setCsvError] = useState('');
   const [csvQuestions, setCsvQuestions] = useState([]);
@@ -166,7 +166,7 @@ function AddQuestionsModal({ closeQModal, handleAddQuestions, loading, currentTe
     reader.readAsText(file);
   };
 
-  const handleSaveCSVQuestions = async () => {
+  const handleSaveCSVQuestions = useCallback(async () => {
     setCsvError('');
     setCsvLoading(true);
     
@@ -212,19 +212,7 @@ function AddQuestionsModal({ closeQModal, handleAddQuestions, loading, currentTe
     } finally {
       setCsvLoading(false);
     }
-      return;
-    }
-    try {
-      await handleAddQuestions(validQuestions);
-      setShowCSV(false);
-      setCsvQuestions([]);
-      closeQModal();
-    } catch (err) {
-      setCsvError('Failed to save questions.');
-    } finally {
-      setCsvLoading(false);
-    }
-  };
+  }, [csvQuestions, handleAddQuestions, closeQModal]);
   const handleManualChange = (field, value) => {
     setManualQuestions(qs => qs.map((q, i) => i === currentIdx ? { ...q, [field]: value } : q));
   };
