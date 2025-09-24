@@ -1,5 +1,7 @@
 
-import axios from 'axios';
+import api from './api';
+
+const API_PATH = '/api/community';
 
 // Delete a community post by id
 export const deletePost = async (postId, token) => {
@@ -11,12 +13,7 @@ export const deletePost = async (postId, token) => {
   console.log('Deleting post with token:', token ? 'Token present' : 'No token');
   
   try {
-    const res = await axios.delete(`${API}/posts/${postId}`, {
-      headers: { 
-        Authorization: `Bearer ${token}`,
-        'Cache-Control': 'no-cache'
-      }
-    });
+    const res = await api.delete(`${API_PATH}/posts/${postId}`);
     console.log('Delete post response:', res.data);
     return res.data;
   } catch (error) {
@@ -30,52 +27,38 @@ export const deletePost = async (postId, token) => {
   }
 };
 
-const API = 'http://localhost:5000/api/community';
-
 export const getPosts = async (token) => {
-  const res = await axios.get(`${API}/posts`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  const res = await api.get(`${API_PATH}/posts`);
   return res.data;
 };
 
 export const createPost = async (post, token, isFormData = false) => {
-  const config = {
+  const config = isFormData ? {
     headers: {
-      Authorization: `Bearer ${token}`
+      'Content-Type': 'multipart/form-data'
     }
-  };
-  if (isFormData) {
-    config.headers['Content-Type'] = 'multipart/form-data';
-  }
-  const res = await axios.post(`${API}/posts`, post, config);
+  } : {};
+  
+  const res = await api.post(`${API_PATH}/posts`, post, config);
   return res.data;
 };
 
 export const toggleUpvote = async (postId, token) => {
-  const res = await axios.post(`${API}/posts/${postId}/upvote`, {}, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  const res = await api.post(`${API_PATH}/posts/${postId}/upvote`, {});
   return res.data;
 };
 
 export const addComment = async (postId, text, token) => {
-  const res = await axios.post(`${API}/posts/${postId}/comments`, { text }, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  const res = await api.post(`${API_PATH}/posts/${postId}/comments`, { text });
   return res.data;
 };
 
 export const getNotifications = async (token) => {
-  const res = await axios.get(`${API}/notifications`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  const res = await api.get(`${API_PATH}/notifications`);
   return res.data;
 };
 
 export const markNotificationRead = async (notifId, token) => {
-  const res = await axios.put(`${API}/notifications/${notifId}/read`, {}, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  const res = await api.put(`${API_PATH}/notifications/${notifId}/read`, {});
   return res.data;
 };
