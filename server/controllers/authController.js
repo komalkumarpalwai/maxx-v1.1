@@ -15,24 +15,26 @@ const register = async (req, res) => {
   try {
     const { name, rollNo, email, password, year, branch, college, passwordHint } = req.body;
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { rollNo }] 
-    });
+    // Check if email already exists
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
+      return res.status(400).json({ 
+        message: 'Email already registered',
+        field: 'email',
+        hint: 'This email address is already registered. Please login instead or use a different email address.',
+        errors: ['Email already registered. Please login instead.']
+      });
+    }
 
-    if (existingUser) {
-      if (existingUser.email === email) {
-        return res.status(400).json({ 
-          message: 'Email already registered',
-          hint: 'Try logging in instead, or use a different email address'
-        });
-      }
-      if (existingUser.rollNo === rollNo) {
-        return res.status(400).json({ 
-          message: 'Roll number already registered',
-          hint: 'Roll numbers must be unique. Contact admin if this is an error.'
-        });
-      }
+    // Check if roll number already exists
+    const existingRollNo = await User.findOne({ rollNo });
+    if (existingRollNo) {
+      return res.status(400).json({ 
+        message: 'Roll number already registered',
+        field: 'rollNo',
+        hint: 'This roll number is already registered with another account. Please contact admin if this is an error.',
+        errors: ['Roll number already in use. Must be unique.']
+      });
     }
 
     // Create new user

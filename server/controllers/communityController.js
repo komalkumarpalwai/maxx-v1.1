@@ -15,17 +15,22 @@ async function getPosts(req, res) {
 
 // Create a new post
 async function createPost(req, res) {
-  let content = req.body.content;
+  let content = req.body.caption || req.body.content;
   let image = req.body.image;
-  // If file uploaded, use its path with full URL
+  // If file uploaded, store just the filename
   if (req.file) {
-    image = `http://localhost:5000/uploads/${req.file.filename}`;
+    image = req.file.filename;
   }
-  console.log('[DEBUG] Creating post with image URL:', image);
+  console.log('[DEBUG] Creating post with content:', content, 'and image:', image);
   if (!content && !image) {
     return res.status(400).json({ message: 'Caption or image is required.' });
   }
-  const post = new Post({ user: req.user._id, content, image });
+  const post = new Post({ 
+    user: req.user._id, 
+    content, 
+    image,
+    caption: content
+  });
   await post.save();
   // Notify all users except poster
   const users = await User.find({ _id: { $ne: req.user._id } });

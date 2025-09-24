@@ -99,15 +99,22 @@ function AddQuestionsModal({ closeQModal, handleAddQuestions, loading, currentTe
   // Parse CSV string to array of question objects
   function parseCSV(csvText) {
     const lines = csvText.trim().split(/\r?\n/);
-    if (lines.length < 2) return [];
-    const header = lines[0].split(',').map(h => h.trim());
-    return lines.slice(1).map(line => {
-      const values = line.split(',');
-      const obj = {};
-      header.forEach((h, i) => {
-        obj[h] = values[i] ? values[i].trim() : '';
-      });
-      return obj;
+    if (lines.length === 0) return [];
+
+    // Handle both tab-delimited and comma-delimited files
+    const delimiter = csvText.includes('\t') ? '\t' : ',';
+    
+    return lines.map(line => {
+      const values = line.split(delimiter);
+      return {
+        question: values[0] || '',
+        option1: values[1] || '',
+        option2: values[2] || '',
+        option3: values[3] || '',
+        option4: values[4] || '',
+        correctAnswer: values[5] || '',
+        points: values[6] || '1'  // Default to 1 point if not specified
+      };
     });
   }
 
@@ -116,22 +123,44 @@ function AddQuestionsModal({ closeQModal, handleAddQuestions, loading, currentTe
     setCsvQuestions([]);
     const file = e.target.files[0];
     if (!file) return;
-    if (!file.name.endsWith('.csv')) {
-      setCsvError('Please upload a .csv file.');
+    
+    // Accept both .csv and .txt files
+    if (!file.name.endsWith('.csv') && !file.name.endsWith('.txt')) {
+      setCsvError('Please upload a .csv or .txt file.');
       return;
     }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const text = event.target.result;
         const questions = parseCSV(text);
-        if (!questions.length) {
-          setCsvError('No valid questions found in CSV.');
+
+        // Validate questions
+        const validQuestions = questions.filter(q => 
+          q.question?.trim() && 
+          q.option1?.trim() && 
+          q.option2?.trim() && 
+          q.option3?.trim() && 
+          q.option4?.trim() && 
+          q.correctAnswer?.trim()
+        );
+
+        if (!validQuestions.length) {
+          setCsvError('No valid questions found in the file. Please check the format.');
         } else {
-          setCsvQuestions(questions);
+          // Convert the questions to the correct format
+          const formattedQuestions = validQuestions.map(q => ({
+            ...q,
+            points: q.points ? parseInt(q.points) : 1,
+            correctAnswer: q.correctAnswer ? parseInt(q.correctAnswer) : 1
+          }));
+          setCsvQuestions(formattedQuestions);
+          console.log('Parsed questions:', formattedQuestions);
         }
       } catch (err) {
-        setCsvError('Failed to parse CSV.');
+        console.error('Parse error:', err);
+        setCsvError('Failed to parse file. Please check the format.');
       }
     };
     reader.readAsText(file);
@@ -140,11 +169,49 @@ function AddQuestionsModal({ closeQModal, handleAddQuestions, loading, currentTe
   const handleSaveCSVQuestions = async () => {
     setCsvError('');
     setCsvLoading(true);
-    // Validate questions
-    const validQuestions = csvQuestions.filter(q => q.question && q.option1 && q.option2 && q.option3 && q.option4 && q.correctAnswer && q.points);
-    if (!validQuestions.length) {
-      setCsvError('No valid questions to save.');
+    
+    try {
+      // Validate and format questions
+      const validQuestions = csvQuestions.map((q, index) => {
+        // Validate all required fields
+        if (!q.question?.trim()) throw new Error(`Question text is missing in row ${index + 1}`);
+        if (!q.option1?.trim()) throw new Error(`Option 1 is missing in row ${index + 1}`);
+        if (!q.option2?.trim()) throw new Error(`Option 2 is missing in row ${index + 1}`);
+        if (!q.option3?.trim()) throw new Error(`Option 3 is missing in row ${index + 1}`);
+        if (!q.option4?.trim()) throw new Error(`Option 4 is missing in row ${index + 1}`);
+        
+        // Validate correct answer
+        const correctAnswer = parseInt(q.correctAnswer);
+        if (isNaN(correctAnswer) || correctAnswer < 1 || correctAnswer > 4) {
+          throw new Error(`Invalid correct answer in row ${index + 1}. Must be a number between 1 and 4`);
+        }
+
+        // Format the question object
+        return {
+          question: q.question.trim(),
+          option1: q.option1.trim(),
+          option2: q.option2.trim(),
+          option3: q.option3.trim(),
+          option4: q.option4.trim(),
+          correctAnswer: correctAnswer,
+          points: parseInt(q.points) || 1
+        };
+      });
+
+      if (!validQuestions.length) {
+        throw new Error('No valid questions to save.');
+      }
+
+      // Save the questions
+      await handleAddQuestions(validQuestions);
+      setShowCSV(false);
+      setCsvQuestions([]);
+      closeQModal();
+    } catch (err) {
+      setCsvError(err.message || 'Failed to save questions.');
+    } finally {
       setCsvLoading(false);
+    }
       return;
     }
     try {
@@ -214,11 +281,11 @@ function AddQuestionsModal({ closeQModal, handleAddQuestions, loading, currentTe
           <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
             <div className="bg-white p-4 rounded-lg w-full max-w-md border border-gray-200">
               <h4 className="font-semibold mb-2 text-gray-700">CSV Format</h4>
-              <p className="text-xs mb-2">Columns: <b>question, option1, option2, option3, option4, correctAnswer (1-4), points</b></p>
-              <div className="bg-gray-100 p-2 rounded text-xs mb-2">
-                question,option1,option2,option3,option4,correctAnswer,points<br />
-                What is 2+2?,2,3,4,5,3,1<br />
-                Capital of France?,London,Berlin,Paris,Rome,3,1
+              <p className="text-xs mb-2">Format (tab-separated or comma-separated):</p>
+              <div className="bg-gray-100 p-2 rounded text-xs mb-2 whitespace-pre-wrap font-mono">
+                question    option1    option2    option3    option4    correctAnswer    points<br/>
+                How do you say hello?    Hi    Bye    Thanks    Good    1    1<br/>
+                What is 2+2?    2    3    4    5    3    1
               </div>
               <input type="file" accept=".csv" onChange={handleCSVUpload} className="mb-2" />
               {csvQuestions.length > 0 && (

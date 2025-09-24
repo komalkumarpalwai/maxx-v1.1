@@ -45,9 +45,9 @@ const Community = () => {
       return;
     }
     const formData = new FormData();
-    formData.append('content', newPost.content);
+    formData.append('caption', newPost.content);
     if (newPost.imageFile) {
-      formData.append('imageFile', newPost.imageFile);
+      formData.append('image', newPost.imageFile);
     }
     try {
       await createPost(formData, token, true);
@@ -130,7 +130,7 @@ const Community = () => {
                 {post.image && (
                   <div className="w-full flex justify-center my-2">
                     <img
-                      src={post.image.startsWith('http') ? post.image : `http://localhost:5000/uploads/${post.image}`}
+                      src={post.image.startsWith('http') ? post.image : `${process.env.REACT_APP_API_URL}/uploads/${post.image}`}
                       alt="Post"
                       className="rounded-lg max-h-80 object-contain border"
                       crossOrigin="anonymous"

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getPosts as getCommunityPosts, deletePost as deleteCommunityPost } from '../services/community';
 import { createPost } from '../services/community';
 import api from '../services/api';
@@ -30,16 +31,8 @@ const sidebarItems = [
 
 const AdminPanel = () => {
   const { user, token, logout } = useAuth();
+  const navigate = useNavigate();
   const [section, setSection] = useState('create');
-
-  // Debug log for auth state
-  useEffect(() => {
-    console.log('Admin Panel Auth State:', { 
-      userId: user?._id,
-      role: user?.role,
-      hasToken: !!token
-    });
-  }, [user, token]);
 
   // State for admin post as Max Solutions
   const [adminPostContent, setAdminPostContent] = useState('');
@@ -50,6 +43,14 @@ const AdminPanel = () => {
   const [communityPosts, setCommunityPosts] = useState([]);
   const [communityLoading, setCommunityLoading] = useState(false);
   const [communityError, setCommunityError] = useState('');
+
+  // Check if user is authenticated with valid token
+  useEffect(() => {
+    if (!token || !user || (user.role !== 'admin' && user.role !== 'superadmin')) {
+      logout();
+      navigate('/admin-login', { replace: true });
+    }
+  }, [token, user, logout, navigate]);
 
   // Fetch all community posts for monitor tab
   const fetchCommunityPosts = async () => {
@@ -246,15 +247,15 @@ const AdminPanel = () => {
                 
                 try {
                   const formData = new FormData();
-                  formData.append('content', adminPostContent);
+                  formData.append('caption', adminPostContent); // Changed from content to caption to match API
                   if (adminPostImage) {
-                    formData.append('imageFile', adminPostImage);
+                    formData.append('image', adminPostImage); // Changed from imageFile to image to match API
                   }
                   
                   // Set the admin flag for proper handling on the server
                   formData.append('isAdminPost', 'true');
                   
-                  await createPost(formData, user.token, true);
+                  await createPost(formData, token, true); // Using token directly
                   
                   // Clear form and show success
                   setAdminPostContent('');
@@ -322,7 +323,7 @@ const AdminPanel = () => {
                           <td className="border px-2 py-1">
                             {post.image ? (
                               <img 
-                                src={post.image.startsWith('http') ? post.image : `http://localhost:5000/uploads/${post.image}`}
+                                src={post.image.startsWith('http') ? post.image : `${process.env.REACT_APP_API_URL}/uploads/${post.image}`}
                                 alt="Community post" 
                                 className="h-12 w-12 object-cover rounded"
                               />

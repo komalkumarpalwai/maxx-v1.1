@@ -112,13 +112,23 @@ const Register = () => {
         toast.success('Registration successful!');
         navigate('/');
       } else {
-        // Show hint if available
-        if (result.hint) {
-          setRegistrationHint(result.hint);
-          toast.error(result.hint);
-        }
-        if (result.errors) {
-          // Handle validation errors from backend
+        // Show specific error messages based on the field
+        if (result.field) {
+          const newErrors = {};
+          newErrors[result.field] = result.errors?.[0] || result.message;
+          setErrors(prev => ({ ...prev, ...newErrors }));
+          
+          if (result.field === 'email') {
+            // For email errors, add a suggestion to log in
+            setRegistrationHint(result.hint || 'Email already registered. Try logging in instead.');
+            toast.error('Email already registered. Please login or use a different email.');
+          } else if (result.field === 'rollNo') {
+            // For roll number errors, add hint about contacting admin
+            setRegistrationHint(result.hint || 'Roll number already taken. Contact admin if this is an error.');
+            toast.error('Roll number already in use. Please verify your roll number.');
+          }
+        } else if (result.errors) {
+          // Handle other validation errors
           const backendErrors = {};
           result.errors.forEach(error => {
             if (error.includes('password')) {
@@ -130,8 +140,15 @@ const Register = () => {
             }
           });
           setErrors(prev => ({ ...prev, ...backendErrors }));
+          if (result.hint) {
+            setRegistrationHint(result.hint);
+          }
         }
-        if (!result.hint) toast.error(result.error || 'Registration failed');
+        
+        // Show general error if no specific error is set
+        if (!result.field && !result.hint && !result.errors) {
+          toast.error(result.error || 'Registration failed');
+        }
       }
     } catch (error) {
       toast.error('An error occurred during registration');

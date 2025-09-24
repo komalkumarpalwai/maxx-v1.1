@@ -9,7 +9,7 @@ console.log('communityController:', communityController);
 // Feed
 
 router.get('/posts', communityController.getPosts);
-router.post('/posts', auth, upload.single('imageFile'), communityController.createPost);
+router.post('/posts', auth, upload.single('image'), communityController.createPost);
 router.post('/posts/:id/upvote', auth, communityController.toggleUpvote);
 router.post('/posts/:id/comments', auth, communityController.addComment);
 router.delete('/posts/:id', auth, communityController.deletePost);
